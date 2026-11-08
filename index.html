@@ -391,7 +391,7 @@ const apuVerdict = (a, t) => (a == null || t == null) ? 'idle' : (a + 1e-6 >= t 
 const mark = v => v === 'hit' ? '<span class="mark ok">✓</span>' : v === 'miss' ? '<span class="mark no">✗</span>' : '<span class="mark na">–</span>';
 
 /* ---------- state ---------- */
-const S = { more: false, salesOpen: false, unitOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
+const S = { more: false, salesOpen: false, unitOpen: false, apuOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
 const todayKP = (() => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return p; })();
 const monthKeys = () => Object.keys(S.store.plan.months).sort();
 function modelFor(ym) { return C.OUTLETS.map(o => buildOutlet(o, ym, S.store)); }
@@ -461,8 +461,13 @@ function kpiTiles(m, D, models, ctx) {
       <div class="sx-body">${catLines}</div>
     </details>
     ${ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT))}</div>`;
-  const apu = card('Average Price Unit', ln('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')
-    + ln('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit'));
+  const apuLines = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; const a = ok && k.a.u[D] > 0 ? k.a.rm[D] / k.a.u[D] : null; const t = k.apu > 0 ? k.apu : null; return ln(c.label, a, t, rm, rm, apuVerdict(a, t), false, 'tiada unit'); }).join('');
+  const apu = `<div class="kpi"><div class="lab"><span>Average Price Unit</span></div>
+    <details class="sx" id="ax" ${S.apuOpen ? 'open' : ''}>
+      <summary>${ln('Phone ' + chevSvg, phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')}</summary>
+      <div class="sx-body">${apuLines}</div>
+    </details>
+    ${ln('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit')}</div>`;
   return `<h3 class="sec">Hari ini <small>${DOW[dowOf(m.Y, m.M, D)]}, ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
 }
 function mtdBrief(m, D) {
@@ -651,6 +656,7 @@ function render() {
     + strip(S.scope === 'all' ? combine(models) : m, D)
     + mtdBrief(m, D) + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
   app.innerHTML = html;
+  const ax = $('#ax'); if (ax) ax.addEventListener('toggle', () => { S.apuOpen = ax.open; });
   const ux = $('#ux'); if (ux) ux.addEventListener('toggle', () => { S.unitOpen = ux.open; });
   const sx = $('#sx'); if (sx) sx.addEventListener('toggle', () => { S.salesOpen = sx.open; });
   const mo = $('#more'); if (mo) mo.addEventListener('toggle', () => { S.more = mo.open; });
