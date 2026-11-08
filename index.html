@@ -382,54 +382,74 @@ function dayCell(label, a, t, fmtA, fmtT, isFuture, closed, noData) {
 }
 function kpiTiles(m, D, models, ctx) {
   const K = kpis(m, D), { future, noData } = ctx;
-  const closed = !m.open[D];
-  const sV = verdict(K.sales.mtdA, K.sales.mtdT), uV = verdict(K.unit.mtdA, K.unit.mtdT), aV = apuVerdict(K.apu.mtd, K.apu.tgt);
+  const closed = !m.open[D] && !(K.sales.day > 0);
+  const state = future ? 'future' : closed ? 'closed' : noData ? 'nodata' : 'ok';
+  const stTxt = { future: 'belum tiba', closed: 'outlet tutup', nodata: 'belum diisi' }[state];
+  const pill = (v, g, f) => state !== 'ok' ? `<span class="pill idle">${stTxt}</span>` : v === 'idle' ? '<span class="pill idle">Tiada target</span>' : v === 'hit' ? `<span class="pill hit">✓ CAPAI HARI INI · ${f(g)}</span>` : `<span class="pill miss">✗ TAK CAPAI HARI INI · ${f(g)}</span>`;
+  const big = (txt, unit) => `<div class="val num">${state === 'ok' ? txt : '–'}<small>${state === 'ok' ? unit : stTxt}</small></div>`;
+  const mtdRow = (a, t, fa, ft, v) => `<div><span>MTD (s/d ${D} ${MS[m.M - 1]})</span><b>${fa(a)} <span class="na">/ ${ft(t)} · ${pct(a, t)}</span> ${mark(v)}</b></div>`;
+  const sV = verdict(K.sales.mtdA, K.sales.mtdT), uV = verdict(K.unit.mtdA, K.unit.mtdT), aMtd = apuVerdict(K.apu.mtd, K.apu.tgt);
+  const sDay = verdict(K.sales.day, K.sales.dayT), uDay = verdict(K.unit.day, K.unit.dayT);
+  const aDayOk = state === 'ok' && K.unit.day > 0;
+  const aDay = aDayOk ? apuVerdict(K.apu.day, K.apu.tgt) : 'idle';
   const sales = `
-  <div class="kpi"><div class="lab"><span>Sales RM</span>${pct(K.sales.mtdA, K.sales.mtdT)} daripada target MTD</div>
-    <div class="val num">${rm(K.sales.mtdA)}<small>MTD</small></div>
-    ${barHTML(K.sales.mtdA, K.sales.mtdT)}
-    <div>${pillHTML(sV, K.sales.mtdA, K.sales.mtdT, rmS)}</div>
+  <div class="kpi"><div class="lab"><span>Sales RM · hari ini</span>${state === 'ok' ? pct(K.sales.day, K.sales.dayT) + ' daripada target' : ''}</div>
+    ${big(rm(K.sales.day), 'hari ini')}
+    ${state === 'ok' ? barHTML(K.sales.day, K.sales.dayT) : '<div class="bar"></div>'}
+    <div>${pill(sDay, K.sales.day - K.sales.dayT, rmS)}</div>
     <div class="rows num">
-      <div><span>Target MTD</span><b>${rm(K.sales.mtdT)}</b></div>
-      ${dayCell('Hari ini', K.sales.day, K.sales.dayT, rm, rm, future, closed, noData)}
+      <div><span>Target hari ini</span><b>${rm(K.sales.dayT)}</b></div>
+      <div class="hr"></div>
+      ${mtdRow(K.sales.mtdA, K.sales.mtdT, rm, rm, sV)}
+      <div><span>Lebih / kurang MTD</span><b class="${sV === 'hit' ? 'ok' : 'no'}">${rmS(K.sales.mtdA - K.sales.mtdT)}</b></div>
       <div class="hr"></div>
       <div><span>Target bulan</span><b>${rm(K.sales.monthT)}</b></div>
       <div><span>Perlu / hari (baki ${K.sales.left} hari)</span><b>${K.sales.need == null ? '–' : rm(K.sales.need)}</b></div>
       <div><span>Unjuran hujung bulan</span><b>${K.sales.proj == null ? '–' : rm(K.sales.proj) + ' (' + pct(K.sales.proj, K.sales.monthT) + ')'}</b></div>
     </div></div>`;
   const unit = `
-  <div class="kpi"><div class="lab"><span>Unit (phone)</span>${pct(K.unit.mtdA, K.unit.mtdT)} daripada target MTD</div>
-    <div class="val num">${un(K.unit.mtdA)}<small>unit MTD</small></div>
-    ${barHTML(K.unit.mtdA, K.unit.mtdT)}
-    <div>${pillHTML(uV, K.unit.mtdA, K.unit.mtdT, unS)}</div>
+  <div class="kpi"><div class="lab"><span>Unit phone · hari ini</span>${state === 'ok' && K.unit.dayT > 0 ? pct(K.unit.day, K.unit.dayT) + ' daripada target' : ''}</div>
+    ${big(un(K.unit.day), 'unit hari ini')}
+    ${state === 'ok' ? barHTML(K.unit.day, K.unit.dayT) : '<div class="bar"></div>'}
+    <div>${pill(uDay, K.unit.day - K.unit.dayT, unS)}</div>
     <div class="rows num">
-      <div><span>Target MTD</span><b>${unT(K.unit.mtdT)}</b></div>
-      ${dayCell('Hari ini', K.unit.day, K.unit.dayT, un, unT, future, closed, noData)}
+      <div><span>Target hari ini</span><b>${unT(K.unit.dayT)}</b></div>
+      <div class="hr"></div>
+      ${mtdRow(K.unit.mtdA, K.unit.mtdT, un, unT, uV)}
+      <div><span>Lebih / kurang MTD</span><b class="${uV === 'hit' ? 'ok' : 'no'}">${unS(K.unit.mtdA - K.unit.mtdT)}</b></div>
       <div class="hr"></div>
       <div><span>Target bulan</span><b>${unT(K.unit.monthT)}</b></div>
       <div><span>Perlu / hari (baki ${K.unit.left} hari)</span><b>${K.unit.need == null ? '–' : unT(K.unit.need)}</b></div>
       <div><span>Unit repair MTD</span><b>${un(K.repU.mtdA)} <span class="na">/ ${unT(K.repU.mtdT)}</span></b></div>
     </div></div>`;
-  const apuV = aV;
-  const apuG = (K.apu.mtd != null && K.apu.tgt != null) ? K.apu.mtd - K.apu.tgt : 0;
+  const apuG = (K.apu.day != null && K.apu.tgt != null) ? K.apu.day - K.apu.tgt : 0;
+  const apuPill = state !== 'ok' ? `<span class="pill idle">${stTxt}</span>` : !aDayOk ? '<span class="pill idle">Tiada unit hari ini</span>' : aDay === 'hit' ? `<span class="pill hit">✓ CAPAI HARI INI · ${rmS(apuG)}</span>` : `<span class="pill miss">✗ TAK CAPAI HARI INI · ${rmS(apuG)}</span>`;
+  const apuMtdG = (K.apu.mtd != null && K.apu.tgt != null) ? K.apu.mtd - K.apu.tgt : 0;
   const apu = `
-  <div class="kpi"><div class="lab"><span>APU (phone)</span>${K.apu.mtd != null && K.apu.tgt ? pct(K.apu.mtd, K.apu.tgt) + ' daripada target' : ''}</div>
-    <div class="val num">${K.apu.mtd == null ? '–' : rm(K.apu.mtd)}<small>purata / unit MTD</small></div>
-    ${barHTML(K.apu.mtd || 0, K.apu.tgt || 0)}
-    <div>${apuV === 'idle' ? '<span class="pill idle">Belum ada jualan</span>' : apuV === 'hit' ? `<span class="pill hit">✓ CAPAI · ${rmS(apuG)}</span>` : `<span class="pill miss">✗ TAK CAPAI · ${rmS(apuG)}</span>`}</div>
+  <div class="kpi"><div class="lab"><span>APU phone · hari ini</span>${aDayOk && K.apu.tgt ? pct(K.apu.day, K.apu.tgt) + ' daripada target' : ''}</div>
+    <div class="val num">${aDayOk ? rm(K.apu.day) : '–'}<small>${aDayOk ? 'purata / unit hari ini' : (state === 'ok' ? 'tiada unit' : stTxt)}</small></div>
+    ${aDayOk ? barHTML(K.apu.day, K.apu.tgt || 0) : '<div class="bar"></div>'}
+    <div>${apuPill}</div>
     <div class="rows num">
       <div><span>Target APU</span><b>${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</b></div>
-      ${future ? '<div><span>Hari ini</span><b class="na">belum tiba</b></div>' : (K.unit.day > 0 ? `<div><span>Hari ini</span><b>${rm(K.apu.day)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</b></div>` : '<div><span>Hari ini</span><b class="na">tiada unit</b></div>')}
       <div class="hr"></div>
+      <div><span>MTD (s/d ${D} ${MS[m.M - 1]})</span><b>${K.apu.mtd == null ? '–' : rm(K.apu.mtd)} <span class="na">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</span> ${mark(aMtd)}</b></div>
+      <div><span>Lebih / kurang MTD</span><b class="${aMtd === 'hit' ? 'ok' : 'no'}">${K.apu.mtd == null ? '–' : rmS(apuMtdG)}</b></div>
+      <div class="hr"></div>
+      <div><span>RM phone hari ini</span><b>${state === 'ok' ? rm(K.phoneRM.day) : '–'}</b></div>
       <div><span>RM phone MTD</span><b>${rm(K.phoneRM.mtdA)}</b></div>
       <div><span>Unit phone MTD</span><b>${un(K.unit.mtdA)}</b></div>
     </div></div>`;
   return `<div class="kpis">${sales}${unit}${apu}</div>`;
 }
-function summaryBox(models, D) {
-  const rows = models.map(m => { const K = kpis(m, D); return { m, s: verdict(K.sales.mtdA, K.sales.mtdT), u: verdict(K.unit.mtdA, K.unit.mtdT), a: apuVerdict(K.apu.mtd, K.apu.tgt) }; });
-  const n = rows.length, hs = rows.filter(r => r.s === 'hit').length, hu = rows.filter(r => r.u === 'hit').length, ha = rows.filter(r => r.a === 'hit').length;
-  return `<div class="summary"><div class="big num">${hs}/${n}</div><p><b>outlet capai target Sales MTD.</b><br>Unit: ${hu}/${n} capai · APU: ${ha}/${n} capai</p></div>`;
+function summaryBox(models, D, ctx) {
+  const rows = models.map(m => { const K = kpis(m, D); const closed = !m.open[D] && !(K.sales.day > 0);
+    const dayOn = !ctx.future && !ctx.noData && !closed;
+    return { dayOn, closed, s: verdict(K.sales.day, K.sales.dayT), sm: verdict(K.sales.mtdA, K.sales.mtdT) }; });
+  const open = rows.filter(r => r.dayOn), n = open.length, hs = open.filter(r => r.s === 'hit').length, hm = rows.filter(r => r.sm === 'hit').length;
+  const head = ctx.future ? '–' : ctx.noData ? '–' : `${hs}/${n}`;
+  const txt = ctx.future ? 'Hari ini belum tiba.' : ctx.noData ? 'Data hari ini belum diisi.' : `outlet capai target Sales hari ini${rows.length - n ? ` (${rows.length - n} tutup)` : ''}.`;
+  return `<div class="summary"><div class="big num">${head}</div><p><b>${txt}</b><br>MTD: ${hm}/${rows.length} outlet capai target Sales</p></div>`;
 }
 function scoreboard(models, D, ctx) {
   const all = combine(models);
@@ -554,7 +574,7 @@ function render() {
   html += `<div class="tabs">${tabs}</div>`;
   if (future && ymd(Y, M, 1) > todayKP) html += `<div class="banner info">Bulan ini belum bermula — papar target sahaja. Sales/unit akan terisi bila data masuk ke MASTER SHEET.</div>`;
   if (ctx.noData) html += `<div class="banner info">Data hari ini belum diisi dalam MASTER SHEET. Status MTD dikira sehingga hari ini dengan jualan sedia ada.</div>`;
-  if (S.scope === 'all') html += summaryBox(models, D);
+  if (S.scope === 'all') html += summaryBox(models, D, ctx);
   html += kpiTiles(m, D, models, ctx);
   html += '<div style="height:14px"></div>';
   if (S.scope === 'all') html += scoreboard(models, D, ctx);

@@ -1,4 +1,4 @@
-const CACHE = 'kliki-daily-v2';
+const CACHE = 'kliki-daily-v3';
 const SHELL = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', e => {
