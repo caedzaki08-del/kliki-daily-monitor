@@ -1,0 +1,16 @@
+{
+  "name": "KLIKI Daily Monitor",
+  "short_name": "Daily Monitor",
+  "description": "Monitor jualan harian outlet: Sales RM, Unit, APU vs target",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0B1F4B",
+  "theme_color": "#0B1F4B",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
