@@ -423,7 +423,7 @@ function kpiTiles(m, D, models, ctx) {
   const sales = card('Sales RM', ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true));
   const unit = card('Unit', ln('Phone', K.unit.day, K.unit.dayT, un, unT, verdict(K.unit.day, K.unit.dayT))
     + ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT)));
-  const apu = card('APU', ln('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')
+  const apu = card('Average Price Unit', ln('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')
     + ln('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit'));
   return `<h3 class="sec">Hari ini <small>${DOW[dowOf(m.Y, m.M, D)]}, ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
 }
@@ -433,7 +433,7 @@ function mtdBrief(m, D) {
   return `<h3 class="sec">Month-to-date <small>1 – ${D} ${MS[m.M - 1]}</small></h3><div class="card">
     ${row('Sales RM', K.sales.mtdA, K.sales.mtdT, rm, rm, verdict(K.sales.mtdA, K.sales.mtdT))}
     ${row('Unit phone', K.unit.mtdA, K.unit.mtdT, un, unT, verdict(K.unit.mtdA, K.unit.mtdT))}
-    ${row('APU phone', K.apu.mtd, K.apu.tgt, rm, rm, apuVerdict(K.apu.mtd, K.apu.tgt))}</div>`;
+    ${row('Average Price Unit (phone)', K.apu.mtd, K.apu.tgt, rm, rm, apuVerdict(K.apu.mtd, K.apu.tgt))}</div>`;
 }
 function mtdTiles(m, D) {
   const K = kpis(m, D);
@@ -464,12 +464,12 @@ function mtdTiles(m, D) {
       <div><span>Unit repair MTD</span><b>${un(K.repU.mtdA)} <span class="na">/ ${unT(K.repU.mtdT)}</span></b></div>
     </div></div>`;
   const apu = `
-  <div class="kpi"><div class="lab"><span>APU phone · MTD</span>${K.apu.mtd != null && K.apu.tgt ? pct(K.apu.mtd, K.apu.tgt) + ' daripada target' : ''}</div>
+  <div class="kpi"><div class="lab"><span>Average Price Unit · MTD</span>${K.apu.mtd != null && K.apu.tgt ? pct(K.apu.mtd, K.apu.tgt) + ' daripada target' : ''}</div>
     <div class="val num">${K.apu.mtd == null ? '–' : rm(K.apu.mtd)}<small>purata / unit MTD</small></div>
     ${barHTML(K.apu.mtd || 0, K.apu.tgt || 0)}
     <div>${aV === 'idle' ? '<span class="pill idle">Belum ada jualan</span>' : aV === 'hit' ? `<span class="pill hit">✓ CAPAI · ${rmS(apuG)}</span>` : `<span class="pill miss">✗ TAK CAPAI · ${rmS(apuG)}</span>`}</div>
     <div class="rows num">
-      <div><span>Target APU</span><b>${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</b></div>
+      <div><span>Target Average Price Unit</span><b>${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</b></div>
       <div class="hr"></div>
       <div><span>RM phone MTD</span><b>${rm(K.phoneRM.mtdA)}</b></div>
       <div><span>Unit phone MTD</span><b>${un(K.unit.mtdA)}</b></div>
@@ -499,7 +499,7 @@ function scoreboard(models, D, ctx) {
       ${cell(un(K.unit.day), unT(K.unit.dayT), verdict(K.unit.day, K.unit.dayT))}
       ${st ? `<td class="na">${st}</td>` : apuOk ? `<td>${rm(K.apu.day)}<span class="sub">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</span></td>` : '<td class="na">tiada unit</td>'}</tr>`;
   };
-  return `<h3 class="sec">Ikut outlet <small>hari ini · klik untuk lihat satu outlet</small></h3><div class="card"><div class="tw"><table class="num"><thead><tr><th>Outlet</th><th>Sales</th><th>Unit</th><th>APU</th></tr></thead><tbody>${models.map(m => line(m)).join('')}${line(all, true)}</tbody></table></div></div>`;
+  return `<h3 class="sec">Ikut outlet <small>hari ini · klik untuk lihat satu outlet</small></h3><div class="card"><div class="tw"><table class="num"><thead><tr><th>Outlet</th><th>Sales</th><th>Unit</th><th>Average Price Unit</th></tr></thead><tbody>${models.map(m => line(m)).join('')}${line(all, true)}</tbody></table></div></div>`;
 }
 function catTable(m, D) {
   const rows = C.CATS.map(c => catRow(m, c.id, D));
@@ -516,11 +516,11 @@ function catTable(m, D) {
       <td>${r.apuA == null ? '–' : rm(r.apuA)}<span class="sub">${r.apuT == null ? 'tiada target' : 'target ' + rm(r.apuT)} ${mark(av)}</span></td></tr>`;
   };
   return `<div class="card"><h2>Ikut kategori<small>MTD sehingga ${D} ${MS[m.M - 1]}</small></h2>
-    <div class="tw"><table class="num"><thead><tr><th>Kategori</th><th>Sales RM</th><th>Unit</th><th>APU</th></tr></thead><tbody>
+    <div class="tw"><table class="num"><thead><tr><th>Kategori</th><th>Sales RM</th><th>Unit</th><th>Average Price Unit</th></tr></thead><tbody>
     ${rows.map((r, i) => line(C.CATS[i].label, r)).join('')}
     ${line('Phone (4 kategori)', tot(ph), 'tot')}
     </tbody></table></div>
-    <p class="note">APU = Sales RM ÷ Unit. Target unit = target RM ÷ APU Sept (dari tab PLAN), dibundarkan per outlet per bulan.</p></div>`;
+    <p class="note">Average Price Unit (APU) = Sales RM ÷ Unit. Target unit = target RM ÷ APU Sept (dari tab PLAN), dibundarkan per outlet per bulan.</p></div>`;
 }
 function chartCard(m, D) {
   const kind = S.chart, ids = kind === 'rm' ? ALLC : PHONE;
@@ -562,7 +562,7 @@ function dailyLog(m, D) {
       <td>${un(uA)}<span class="sub">target ${unT(uT)} ${mark(verdict(uA, uT))}</span></td>
       <td>${uA > 0 ? rm(pR / uA) : '–'}</td></tr>`;
   }
-  return `<div class="card"><h2>Log harian<small>klik baris untuk pilih hari</small></h2><div class="tw"><table class="num"><thead><tr><th>Tarikh</th><th>Sales RM</th><th>Unit phone</th><th>APU</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
+  return `<div class="card"><h2>Log harian<small>klik baris untuk pilih hari</small></h2><div class="tw"><table class="num"><thead><tr><th>Tarikh</th><th>Sales RM</th><th>Unit phone</th><th>Average Price Unit</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function strip(m, D) {
   let h = '';
