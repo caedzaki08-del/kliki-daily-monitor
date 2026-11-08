@@ -170,13 +170,13 @@ header{padding-top:calc(6px + env(safe-area-inset-top));padding-bottom:8px}
 .kpi .lab{font-size:11px}
 .card{padding:10px 12px;border-radius:12px;margin-bottom:8px}
 .lnw{gap:3px}.lnw+.lnw{margin-top:7px}
-.ln .lbl{font-size:13px}.ln .act{font-size:18px}.ln .act.sm{font-size:15px}.ln.big .act{font-size:26px}.ln .tg{font-size:13px}
+.ln .lbl{font-size:13px;display:inline-flex;align-items:center;gap:6px}.ln .act{font-size:18px}.ln .act.sm{font-size:15px}.ln.big .act{font-size:26px}.ln .tg{font-size:13px}
 .bar.thin{height:5px}
 th{padding:4px 6px}td{padding:6px 6px}
 details.more{margin:10px 0 2px}details.more>summary{padding:9px}
 footer{padding:4px 0 16px;font-size:11px}
 .banner{padding:7px 12px;margin:8px 0;font-size:12.5px}
-details.sx>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:6px}
+details.sx>summary{cursor:pointer;-webkit-user-select:none;user-select:none;list-style:none;display:flex;flex-direction:column;gap:6px}
 details.sx>summary::-webkit-details-marker{display:none}
 details.sx .lab{display:flex;justify-content:space-between}
 details.sx .chev{display:inline-grid;place-items:center;transition:transform .15s;color:var(--blue)}
@@ -391,7 +391,7 @@ const apuVerdict = (a, t) => (a == null || t == null) ? 'idle' : (a + 1e-6 >= t 
 const mark = v => v === 'hit' ? '<span class="mark ok">✓</span>' : v === 'miss' ? '<span class="mark no">✗</span>' : '<span class="mark na">–</span>';
 
 /* ---------- state ---------- */
-const S = { more: false, salesOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
+const S = { more: false, salesOpen: false, unitOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
 const todayKP = (() => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return p; })();
 const monthKeys = () => Object.keys(S.store.plan.months).sort();
 function modelFor(ym) { return C.OUTLETS.map(o => buildOutlet(o, ym, S.store)); }
@@ -453,8 +453,14 @@ function kpiTiles(m, D, models, ctx) {
     <summary><div class="lab"><span>Sales RM</span><span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>${ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true)}</summary>
     <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}</div>
   </details></div>`;
-  const unit = card('Unit', ln('Phone', K.unit.day, K.unit.dayT, un, unT, verdict(K.unit.day, K.unit.dayT))
-    + ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT)));
+  const chevSvg = '<span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>';
+  const catLines = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; return ln(c.label, k.a.u[D], k.t.u[D], un, unT, verdict(k.a.u[D], k.t.u[D])); }).join('');
+  const unit = `<div class="kpi"><div class="lab"><span>Unit</span></div>
+    <details class="sx" id="ux" ${S.unitOpen ? 'open' : ''}>
+      <summary>${ln('Phone ' + chevSvg, K.unit.day, K.unit.dayT, un, unT, verdict(K.unit.day, K.unit.dayT))}</summary>
+      <div class="sx-body">${catLines}</div>
+    </details>
+    ${ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT))}</div>`;
   const apu = card('Average Price Unit', ln('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')
     + ln('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit'));
   return `<h3 class="sec">Hari ini <small>${DOW[dowOf(m.Y, m.M, D)]}, ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
@@ -645,6 +651,7 @@ function render() {
     + strip(S.scope === 'all' ? combine(models) : m, D)
     + mtdBrief(m, D) + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
   app.innerHTML = html;
+  const ux = $('#ux'); if (ux) ux.addEventListener('toggle', () => { S.unitOpen = ux.open; });
   const sx = $('#sx'); if (sx) sx.addEventListener('toggle', () => { S.salesOpen = sx.open; });
   const mo = $('#more'); if (mo) mo.addEventListener('toggle', () => { S.more = mo.open; });
   $('#asof').textContent = `Data terkini: ${latest} ${MS[M - 1]} · dikemas kini ${new Date(S.store.at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}${S.store.live ? '' : ' (tersimpan)'}`;
