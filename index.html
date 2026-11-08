@@ -459,7 +459,7 @@ const apuVerdict = (a, t) => (a == null || t == null) ? 'idle' : (a + 1e-6 >= t 
 const mark = v => v === 'hit' ? '<span class="mark ok">✓</span>' : v === 'miss' ? '<span class="mark no">✗</span>' : '<span class="mark na">–</span>';
 
 /* ---------- state ---------- */
-const S = { more: false, salesOpen: false, unitOpen: false, apuOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
+const S = { more: false, salesOpen: false, unitOpen: false, apuOpen: false, mSalesOpen: false, mUnitOpen: false, mApuOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
 const todayKP = (() => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return p; })();
 const monthKeys = () => Object.keys(S.store.plan.months).sort();
 function modelFor(ym) { return C.OUTLETS.map(o => buildOutlet(o, ym, S.store)); }
@@ -498,45 +498,54 @@ function dayCell(label, a, t, fmtA, fmtT, isFuture, closed, noData) {
   const v = verdict(a, t);
   return `<div><span>${label}</span><b>${fmtA(a)} <span class="na">/ ${fmtT(t)}</span> ${mark(v)}</b></div>`;
 }
-function kpiTiles(m, D, models, ctx) {
+function kpiTiles(m, D, models, ctx, mode) {
+  mode = mode || 'day';
+  const isDay = mode === 'day', pre = isDay ? '' : 'm';
   const K = kpis(m, D), { future, noData } = ctx;
   const closed = !m.open[D] && !(K.sales.day > 0);
-  const state = future ? 'future' : closed ? 'closed' : noData ? 'nodata' : 'ok';
+  const monthFuture = ymd(m.Y, m.M, 1) > todayKP;
+  const state = isDay ? (future ? 'future' : closed ? 'closed' : noData ? 'nodata' : 'ok') : (monthFuture ? 'future' : 'ok');
   const stTxt = { future: 'belum tiba', closed: 'outlet tutup', nodata: 'belum diisi' }[state];
   const ok = state === 'ok';
-  const rA = series(m, ['rep'], 'rm', 'a'), rT = series(m, ['rep'], 'rm', 't');
-  const repRM = { day: rA[D], dayT: rT[D], monthT: sum(rT, 1, m.N) };
-  const repApuT = K.repU.monthT > 0 && repRM.monthT > 0 ? repRM.monthT / K.repU.monthT : null;
-  const repApuDay = ok && K.repU.day > 0 ? repRM.day / K.repU.day : null;
-  const phApuDay = ok && K.unit.day > 0 ? K.apu.day : null;
-  // satu baris: label | actual | / target | ✓✗ + meter nipis
+  // ambil nilai hari itu (day) atau terkumpul 1..D (mtd)
+  const pick = (A, T) => isDay ? { a: A[D], t: T[D] } : { a: sum(A, 1, D), t: sum(T, 1, D) };
+  const pickS = (ids, kind) => pick(series(m, ids, kind, 'a'), series(m, ids, kind, 't'));
+  const sales = pickS(SALES, 'rm'), phRM = pickS(PHONE, 'rm'), rpRM = pickS(['rep'], 'rm'), acc = pick(m.acc.a, m.acc.t);
+  const phU = pickS(PHONE, 'u'), rpU = pickS(['rep'], 'u');
+  const repApuT = K.repU.monthT > 0 && sum(series(m, ['rep'], 'rm', 't'), 1, m.N) > 0 ? sum(series(m, ['rep'], 'rm', 't'), 1, m.N) / K.repU.monthT : null;
+  const phApuA = ok && phU.a > 0 ? phRM.a / phU.a : null;
+  const rpApuA = ok && rpU.a > 0 ? rpRM.a / rpU.a : null;
   const ln = (label, a, t, fa, ft, v, big, noneTxt) => {
     const none = !ok || a == null;
     const hasT = t != null && t > 0;
     const right = none ? `<span class="na">${!ok ? stTxt : (noneTxt || '–')}</span>` : `<span class="tg">/ ${hasT ? ft(t) : '–'}</span>${hasT ? mark(v) : ''}`;
     return `<div class="lnw"><div class="ln ${big ? 'big' : ''} num"><span class="lbl">${label}</span><span class="act">${none ? '–' : fa(a)}</span>${right}</div>${none || !hasT ? '<div class="bar thin"></div>' : barHTML(a, t).replace('class="bar', 'class="bar thin')}</div>`;
   };
-  const card = (title, body) => `<div class="kpi"><div class="lab"><span>${title}</span></div>${body}</div>`;
-  const sales = `<div class="kpi"><details class="sx" id="sx" ${S.salesOpen ? 'open' : ''}>
-    <summary><div class="lab"><span>Sales RM</span><span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>${ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true)}</summary>
-    <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}${ln('Aksesori', m.acc.a[D], m.acc.t[D], rm, rm, verdict(m.acc.a[D], m.acc.t[D]))}</div>
-  </details></div>`;
   const chevSvg = '<span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>';
-  const catLines = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; return ln(c.label, k.a.u[D], k.t.u[D], un, unT, verdict(k.a.u[D], k.t.u[D])); }).join('');
-  const unit = `<div class="kpi"><div class="lab"><span>Unit</span></div>
-    <details class="sx" id="ux" ${S.unitOpen ? 'open' : ''}>
-      <summary>${ln('Phone ' + chevSvg, K.unit.day, K.unit.dayT, un, unT, verdict(K.unit.day, K.unit.dayT))}</summary>
-      <div class="sx-body">${catLines}</div>
+  const catU = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; const x = pick(k.a.u, k.t.u); return ln(c.label, x.a, x.t, un, unT, verdict(x.a, x.t)); }).join('');
+  const catA = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; const r = pick(k.a.rm, k.t.rm), u = pick(k.a.u, k.t.u); const a = ok && u.a > 0 ? r.a / u.a : null; const t = k.apu > 0 ? k.apu : null; return ln(c.label, a, t, rm, rm, apuVerdict(a, t), false, 'tiada unit'); }).join('');
+  const det = (id, key, head, body) => `<details class="sx" id="${pre}${id}" ${S[pre ? 'm' + key[0].toUpperCase() + key.slice(1) : key] ? 'open' : ''}><summary>${head}</summary><div class="sx-body">${body}</div></details>`;
+  // kad 1: Sales RM
+  const salesCard = `<div class="kpi"><details class="sx" id="${pre}sx" ${S[pre ? 'mSalesOpen' : 'salesOpen'] ? 'open' : ''}>
+    <summary><div class="lab"><span>Sales RM</span>${chevSvg}</div>${ln('Total', sales.a, sales.t, rm, rm, verdict(sales.a, sales.t), true)}</summary>
+    <div class="sx-body">${ln('Phone', phRM.a, phRM.t, rm, rm, verdict(phRM.a, phRM.t))}${ln('Repair', rpRM.a, rpRM.t, rm, rm, verdict(rpRM.a, rpRM.t))}${ln('Aksesori', acc.a, acc.t, rm, rm, verdict(acc.a, acc.t))}</div>
+  </details></div>`;
+  // kad 2: Unit
+  const unitCard = `<div class="kpi"><div class="lab"><span>Unit</span></div>
+    <details class="sx" id="${pre}ux" ${S[pre ? 'mUnitOpen' : 'unitOpen'] ? 'open' : ''}>
+      <summary>${ln('Phone ' + chevSvg, phU.a, phU.t, un, unT, verdict(phU.a, phU.t))}</summary>
+      <div class="sx-body">${catU}</div>
     </details>
-    ${ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT))}</div>`;
-  const apuLines = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; const a = ok && k.a.u[D] > 0 ? k.a.rm[D] / k.a.u[D] : null; const t = k.apu > 0 ? k.apu : null; return ln(c.label, a, t, rm, rm, apuVerdict(a, t), false, 'tiada unit'); }).join('');
-  const apu = `<div class="kpi"><div class="lab"><span>Average Price Unit</span></div>
-    <details class="sx" id="ax" ${S.apuOpen ? 'open' : ''}>
-      <summary>${ln('Phone ' + chevSvg, phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')}</summary>
-      <div class="sx-body">${apuLines}</div>
+    ${ln('Repair', rpU.a, rpU.t, un, unT, verdict(rpU.a, rpU.t))}</div>`;
+  // kad 3: Average Price Unit
+  const apuCard = `<div class="kpi"><div class="lab"><span>Average Price Unit</span></div>
+    <details class="sx" id="${pre}ax" ${S[pre ? 'mApuOpen' : 'apuOpen'] ? 'open' : ''}>
+      <summary>${ln('Phone ' + chevSvg, phApuA, K.apu.tgt, rm, rm, apuVerdict(phApuA, K.apu.tgt), false, 'tiada unit')}</summary>
+      <div class="sx-body">${catA}</div>
     </details>
-    ${ln('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit')}</div>`;
-  return `<h3 class="sec">Hari ini <small>${DOW[dowOf(m.Y, m.M, D)]}, ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
+    ${ln('Repair', rpApuA, repApuT, rm, rm, apuVerdict(rpApuA, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit')}</div>`;
+  const head = isDay ? `Hari ini <small>${DOW[dowOf(m.Y, m.M, D)]}, ${D} ${MS[m.M - 1]}</small>` : `Month-to-date <small>1 – ${D} ${MS[m.M - 1]}</small>`;
+  return `<h3 class="sec">${head}</h3><div class="kpis">${salesCard}${unitCard}${apuCard}</div>`;
 }
 function mtdBrief(m, D) {
   const K = kpis(m, D);
@@ -723,11 +732,9 @@ function render() {
   if (S.scope === 'all') html += scoreboard(models, D, ctx);
   html += `<details class="more" id="more" ${S.more ? 'open' : ''}><summary>Perincian lagi</summary>`
     + strip(S.scope === 'all' ? combine(models) : m, D)
-    + mtdBrief(m, D) + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
+    + kpiTiles(m, D, models, ctx, 'mtd') + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
   app.innerHTML = html;
-  const ax = $('#ax'); if (ax) ax.addEventListener('toggle', () => { S.apuOpen = ax.open; });
-  const ux = $('#ux'); if (ux) ux.addEventListener('toggle', () => { S.unitOpen = ux.open; });
-  const sx = $('#sx'); if (sx) sx.addEventListener('toggle', () => { S.salesOpen = sx.open; });
+  [['sx','salesOpen'],['ux','unitOpen'],['ax','apuOpen'],['msx','mSalesOpen'],['mux','mUnitOpen'],['max','mApuOpen']].forEach(([id, key]) => { const el = $('#' + id); if (el) el.addEventListener('toggle', () => { S[key] = el.open; }); });
   const mo = $('#more'); if (mo) mo.addEventListener('toggle', () => { S.more = mo.open; });
   $('#asof').textContent = `Data terkini: ${latest} ${MS[M - 1]} · dikemas kini ${new Date(S.store.at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}${S.store.live ? '' : ' (tersimpan)'}`;
   app.querySelectorAll('[data-scope]').forEach(e => e.onclick = () => { S.scope = e.dataset.scope; render(); window.scrollTo({ top: 0 }); });
