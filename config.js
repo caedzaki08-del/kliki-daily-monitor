@@ -35,6 +35,11 @@ window.CONFIG = {
   // Aksesori: ada target RM tapi tiada unit; dipapar berasingan (tidak dikira dalam Total Sales).
   ACC: { label: 'Aksesori', planRM: 'ACCESSORIES_RM', rm: ['AKSESORI (RM)'] },
 
+  // Syarat capai = 3/3 (Sales, Unit, Average Price Unit). Keputusan rasmi ikut MTD; harian = isyarat.
+  // true  = Unit ✓ hanya bila Phone DAN Repair ✓; APU ✓ hanya bila Phone DAN Repair ✓ (Repair dikira kalau ada target).
+  // false = Unit dan APU dinilai ikut Phone sahaja.
+  JUDGE_REPAIR: true,
+
   // Pecahan target ikut minggu: W1=hari 1-7, W2=8-14, W3=15-21, W4=22-akhir bulan.
   // Dibaca dari tab PLAN (lajur MINGGU/KONGSI); nilai ini hanya ganti jika PLAN tiada.
   WEEK_SHARE_FALLBACK: [0.25, 0.24, 0.21, 0.30],

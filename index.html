@@ -186,6 +186,18 @@ details.sx[open] .chev{transform:rotate(180deg)}
 @media(prefers-reduced-motion:reduce){details.sx .chev{transition:none}}
 .accsep{border-top:1px dashed var(--mute);opacity:.5;margin:9px 0 0}
 .accnote{margin:6px 0 0;font-size:11px;color:var(--mute)}
+.status{display:flex;gap:12px;align-items:stretch;border-radius:12px;padding:10px 12px;margin:8px 0 4px;background:var(--card);box-shadow:var(--shadow);border-left:6px solid var(--idle)}
+.status.hit{border-left-color:var(--hit)}.status.miss{border-left-color:var(--miss)}
+.st-main{display:flex;flex-direction:column;justify-content:center;min-width:92px}
+.st-main b{font-size:19px;line-height:1.1}.status.hit .st-main b{color:var(--hit)}.status.miss .st-main b{color:var(--miss)}
+.st-main span{font-size:12px;color:var(--mute);margin-top:2px}
+.st-rows{flex:1;display:flex;flex-direction:column;gap:6px;min-width:0}
+.st-r{display:flex;gap:8px;align-items:flex-start}
+.st-l{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mute);width:62px;flex:none;padding-top:3px}
+.chips3{display:flex;flex-wrap:wrap;gap:4px}
+.chip3{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
+.chip3 i{font-style:normal;font-weight:500;opacity:.85}
+.chip3.hit{background:var(--hit-bg);color:var(--hit)}.chip3.miss{background:var(--miss-bg);color:var(--miss)}
 </style>
 </head>
 <body>
@@ -395,6 +407,48 @@ function kpis(m, D) {
   const repU = mk(['rep'], 'u');
   return { sales, unit, phoneRM, repU, apu: { day: apuDay, mtd: apuA, tgt: apuT } };
 }
+// Penilaian 3/3: Sales, Unit, Average Price Unit
+function judge(m, D, dayOn) {
+  const K = kpis(m, D), useRep = C.JUDGE_REPAIR !== false;
+  const rA = series(m, ['rep'], 'rm', 'a'), rT = series(m, ['rep'], 'rm', 't');
+  const repMonthRM = sum(rT, 1, m.N), repMtdRM = sum(rA, 1, D), repDayRM = rA[D];
+  const repApuT = K.repU.monthT > 0 && repMonthRM > 0 ? repMonthRM / K.repU.monthT : null;
+  const pass = (ph, rp) => ph === 'hit' && (!useRep || rp == null || rp === 'hit');
+  const build = (sA, sT, uA, uT, apuA, apuT, rUA, rUT, rApuA) => {
+    const sV = verdict(sA, sT) === 'hit';
+    const uPh = verdict(uA, uT), uRp = rUT > 0 ? verdict(rUA, rUT) : null;
+    const aPh = apuVerdict(apuA, apuT), aRp = (repApuT != null && rUT > 0 && rApuA != null) ? apuVerdict(rApuA, repApuT) : null;
+    const uV = pass(uPh, uRp), aV = pass(aPh, aRp);
+    const why = { u: uV ? '' : (uPh === 'hit' ? 'Repair' : (useRep && uRp != null && uRp !== 'hit' ? 'Phone & Repair' : 'Phone')), a: aV ? '' : (aPh === 'hit' ? 'Repair' : (useRep && aRp != null && aRp !== 'hit' ? 'Phone & Repair' : 'Phone')) };
+    const n = (sV ? 1 : 0) + (uV ? 1 : 0) + (aV ? 1 : 0);
+    return { s: sV, u: uV, a: aV, n, ok: n === 3, why, gap: { s: sA - sT, u: uA - uT, a: (apuA != null && apuT != null) ? apuA - apuT : null } };
+  };
+  if (!m.hasPlan) return { mtd: null, day: null };
+  const mtd = build(K.sales.mtdA, K.sales.mtdT, K.unit.mtdA, K.unit.mtdT, K.apu.mtd, K.apu.tgt, K.repU.mtdA, K.repU.mtdT, K.repU.mtdA > 0 ? repMtdRM / K.repU.mtdA : null);
+  const day = dayOn ? build(K.sales.day, K.sales.dayT, K.unit.day, K.unit.dayT, K.unit.day > 0 ? K.apu.day : null, K.apu.tgt, K.repU.day, K.repU.dayT, K.repU.day > 0 ? repDayRM / K.repU.day : null) : null;
+  return { mtd, day };
+}
+function dayOnFor(m, D, ctx) {
+  const dk = ymd(m.Y, m.M, D), fut = dk > todayKP;
+  const sd = series(m, SALES, 'rm', 'a')[D], closed = !m.open[D] && !(sd > 0);
+  return !fut && !closed && !(ctx && ctx.noData);
+}
+function statusCard(m, D, ctx) {
+  const J = judge(m, D, dayOnFor(m, D, ctx));
+  if (!J.mtd) return '';
+  const chip = (lab, ok, gap) => `<span class="chip3 ${ok ? 'hit' : 'miss'}">${lab} ${ok ? '✓' : '✗'}${gap == null ? '' : ' <i>' + gap + '</i>'}</span>`;
+  const mt = J.mtd, dy = J.day;
+  const head = mt.ok ? 'CAPAI' : 'TAK CAPAI';
+  const g = (ok, why, txt) => ok ? txt : (why === 'Repair' ? 'Repair ✗' : txt);
+  const rowM = chip('Sales', mt.s, rmS(mt.gap.s)) + chip('Unit', mt.u, g(mt.u, mt.why.u, unS(mt.gap.u))) + chip('Avg Price Unit', mt.a, mt.gap.a == null ? null : g(mt.a, mt.why.a, rmS(mt.gap.a)));
+  const rowD = dy ? chip('Sales', dy.s) + chip('Unit', dy.u, g(dy.u, dy.why.u, null)) + chip('Avg Price Unit', dy.a, g(dy.a, dy.why.a, null)) : '<span class="na">tiada penilaian (tutup / belum diisi / belum tiba)</span>';
+  return `<div class="status ${mt.ok ? 'hit' : 'miss'}">
+    <div class="st-main"><b>${head}</b><span>${mt.n}/3 MTD</span></div>
+    <div class="st-rows">
+      <div class="st-r"><span class="st-l">MTD</span><div class="chips3">${rowM}</div></div>
+      <div class="st-r"><span class="st-l">Hari ini${dy ? ' ' + dy.n + '/3' : ''}</span><div class="chips3">${rowD}</div></div>
+    </div></div>`;
+}
 function catRow(m, id, D) {
   const k = m.cat[id];
   const rmA = sum(k.a.rm, 1, D), rmT = sum(k.t.rm, 1, D), uA = sum(k.a.u, 1, D), uT = sum(k.t.u, 1, D);
@@ -551,7 +605,7 @@ function scoreboard(models, D, ctx) {
     const cell = (txt, tgt, v) => st ? `<td class="na">${st}</td>` : `<td>${txt}<span class="sub">/ ${tgt} ${mark(v)}</span></td>`;
     const apuOk = !st && K.unit.day > 0;
     return `<tr class="${isTot ? 'tot' : 'link'}" ${isTot ? '' : `data-scope="${m.o.key}"`}>
-      <td><b>${esc(m.o.name)}</b></td>
+      <td><b>${esc(m.o.name)}</b>${(() => { const J = judge(m, D, !st); if (!J.mtd) return ''; return `<span class="sub">MTD ${J.mtd.ok ? '<span class="ok">✓</span>' : '<span class="no">✗</span>'} ${J.mtd.n}/3${J.day ? ' · hari ini ' + J.day.n + '/3' : ''}</span>`; })()}</td>
       ${cell(rm(K.sales.day), rm(K.sales.dayT), verdict(K.sales.day, K.sales.dayT))}
       ${cell(un(K.unit.day), unT(K.unit.dayT), verdict(K.unit.day, K.unit.dayT))}
       ${st ? `<td class="na">${st}</td>` : apuOk ? `<td>${rm(K.apu.day)}<span class="sub">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</span></td>` : '<td class="na">tiada unit</td>'}</tr>`;
@@ -650,7 +704,7 @@ function render() {
   const latest = latestDay(models);
   const nextOk = D < models[0].N && ymd(Y, M, D + 1) <= todayKP, prevOk = D > 1;
   const tabs = [{ key: 'all', name: 'Semua' }].concat(C.OUTLETS).map(o => {
-    const mo = o.key === 'all' ? combine(models) : models.find(x => x.o.key === o.key); const K = kpis(mo, D); const v = future ? 'idle' : verdict(K.sales.mtdA, K.sales.mtdT);
+    const mo = o.key === 'all' ? combine(models) : models.find(x => x.o.key === o.key); const JJ = judge(mo, D, false).mtd; const v = (future || !JJ) ? 'idle' : (JJ.ok ? 'hit' : 'miss');
     return `<button class="tab" data-scope="${o.key}" aria-pressed="${S.scope === o.key}"><span class="dot ${v}"></span>${esc(o.key === 'all' ? 'Semua' : o.name)}</button>`;
   }).join('');
 
@@ -664,6 +718,7 @@ function render() {
   html += `<div class="tabs">${tabs}</div>`;
   if (future && ymd(Y, M, 1) > todayKP) html += `<div class="banner info">Bulan ini belum bermula. Sales/unit akan terisi bila data masuk ke MASTER SHEET.</div>`;
   if (ctx.noData) html += `<div class="banner info">Data hari ini belum diisi dalam MASTER SHEET.</div>`;
+  html += statusCard(m, D, ctx);
   html += kpiTiles(m, D, models, ctx);
   if (S.scope === 'all') html += scoreboard(models, D, ctx);
   html += `<details class="more" id="more" ${S.more ? 'open' : ''}><summary>Perincian lagi</summary>`
