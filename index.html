@@ -614,7 +614,7 @@ function scoreboard(models, D, ctx) {
     const cell = (txt, tgt, v) => st ? `<td class="na">${st}</td>` : `<td>${txt}<span class="sub">/ ${tgt} ${mark(v)}</span></td>`;
     const apuOk = !st && K.unit.day > 0;
     return `<tr class="${isTot ? 'tot' : 'link'}" ${isTot ? '' : `data-scope="${m.o.key}"`}>
-      <td><b>${esc(m.o.name)}</b>${(() => { const J = judge(m, D, !st); if (!J.mtd) return ''; return `<span class="sub">MTD ${J.mtd.ok ? '<span class="ok">✓</span>' : '<span class="no">✗</span>'} ${J.mtd.n}/3${J.day ? ' · hari ini ' + J.day.n + '/3' : ''}</span>`; })()}</td>
+      <td><b>${esc(m.o.name)}</b>${(() => { const J = judge(m, D, !st); if (!J.mtd) return ''; return `<span class="sub">MTD ${J.mtd.ok ? '<span class="ok">✓</span>' : '<span class="no">✗</span>'} ${J.mtd.n}/3${J.day ? ' · harian ' + J.day.n + '/3' : ''}</span>`; })()}</td>
       ${cell(rm(K.sales.day), rm(K.sales.dayT), verdict(K.sales.day, K.sales.dayT))}
       ${cell(un(K.unit.day), unT(K.unit.dayT), verdict(K.unit.day, K.unit.dayT))}
       ${st ? `<td class="na">${st}</td>` : apuOk ? `<td>${rm(K.apu.day)}<span class="sub">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</span></td>` : '<td class="na">tiada unit</td>'}</tr>`;
