@@ -202,7 +202,7 @@ details.sx[open] .chev{transform:rotate(180deg)}
 </header>
 
 <main class="wrap" id="app"><div class="empty">Memuatkan…</div></main>
-<footer class="wrap">Sumber: MASTER SHEET SALES OUTLET (baca sahaja) · Aksesori tidak dikira dalam KPI</footer>
+<footer class="wrap">Sumber: MASTER SHEET SALES OUTLET (baca sahaja) · Total Sales termasuk Aksesori</footer>
 
 <script src="config.js"></script>
 <script>
@@ -373,9 +373,10 @@ function combine(list) {
 }
 const PHONE = C.CATS.filter(c => !c.repair).map(c => c.id);
 const ALLC = C.CATS.map(c => c.id);
+const SALES = ALLC.concat(['acc']); // Total Sales = Phone + Repair + Aksesori (ikut target yang diberi)
 const sum = (arr, from, to) => { let s = 0; for (let i = from; i <= to; i++) s += arr[i] || 0; return s; };
 function series(m, ids, kind, which) { // jumlah harian beberapa kategori
-  const out = []; for (let d = 1; d <= m.N; d++) { let s = 0; for (const id of ids) s += m.cat[id][which][kind][d]; out[d] = s; } return out;
+  const out = []; for (let d = 1; d <= m.N; d++) { let s = 0; for (const id of ids) s += id === 'acc' ? (m.acc[which][d] || 0) : m.cat[id][which][kind][d]; out[d] = s; } return out;
 }
 // ringkasan KPI sehingga hari D
 function kpis(m, D) {
@@ -387,7 +388,7 @@ function kpis(m, D) {
     const proj = mtdT > 0 ? mtdA / mtdT * monthT : null;
     return { A, T, day: A[D], dayT: T[D], mtdA, mtdT, monthT, left, need, proj };
   };
-  const sales = mk(ALLC, 'rm'), unit = mk(PHONE, 'u'), phoneRM = mk(PHONE, 'rm');
+  const sales = mk(SALES, 'rm'), unit = mk(PHONE, 'u'), phoneRM = mk(PHONE, 'rm');
   const apuDay = unit.day > 0 ? phoneRM.day / unit.day : null;
   const apuA = unit.mtdA > 0 ? phoneRM.mtdA / unit.mtdA : null;
   const apuT = unit.monthT > 0 ? phoneRM.monthT / unit.monthT : null;
@@ -464,7 +465,7 @@ function kpiTiles(m, D, models, ctx) {
   const card = (title, body) => `<div class="kpi"><div class="lab"><span>${title}</span></div>${body}</div>`;
   const sales = `<div class="kpi"><details class="sx" id="sx" ${S.salesOpen ? 'open' : ''}>
     <summary><div class="lab"><span>Sales RM</span><span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>${ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true)}</summary>
-    <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}<div class="accsep"></div>${ln('Aksesori', m.acc.a[D], m.acc.t[D], rm, rm, verdict(m.acc.a[D], m.acc.t[D]))}<p class="accnote">Aksesori tidak dikira dalam Total.</p></div>
+    <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}${ln('Aksesori', m.acc.a[D], m.acc.t[D], rm, rm, verdict(m.acc.a[D], m.acc.t[D]))}</div>
   </details></div>`;
   const chevSvg = '<span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>';
   const catLines = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; return ln(c.label, k.a.u[D], k.t.u[D], un, unT, verdict(k.a.u[D], k.t.u[D])); }).join('');
@@ -579,7 +580,7 @@ function catTable(m, D) {
     <p class="note">Average Price Unit (APU) = Sales RM ÷ Unit. Target unit = target RM ÷ APU Sept (dari tab PLAN), dibundarkan per outlet per bulan.</p></div>`;
 }
 function chartCard(m, D) {
-  const kind = S.chart, ids = kind === 'rm' ? ALLC : PHONE;
+  const kind = S.chart, ids = kind === 'rm' ? SALES : PHONE;
   const A = series(m, ids, kind, 'a'), T = series(m, ids, kind, 't');
   const N = m.N, W = 640, H = 170, pl = 6, pr = 6, pt = 10, pb = 22, bw = (W - pl - pr) / N;
   let max = 0; for (let d = 1; d <= N; d++) { max = Math.max(max, A[d] || 0, T[d] || 0); } max = max || 1;
@@ -607,7 +608,7 @@ function dailyLog(m, D) {
   let body = '';
   for (let d = m.N; d >= 1; d--) {
     const k = ymd(m.Y, m.M, d); if (k > todayKP) continue;
-    const sA = sum(series(m, ALLC, 'rm', 'a'), d, d), sT = sum(series(m, ALLC, 'rm', 't'), d, d);
+    const sA = sum(series(m, SALES, 'rm', 'a'), d, d), sT = sum(series(m, SALES, 'rm', 't'), d, d);
     const uA = sum(series(m, PHONE, 'u', 'a'), d, d), uT = sum(series(m, PHONE, 'u', 't'), d, d);
     const pR = sum(series(m, PHONE, 'rm', 'a'), d, d);
     const op = m.open[d], has = sA !== 0 || uA !== 0;
@@ -624,7 +625,7 @@ function strip(m, D) {
   let h = '';
   for (let d = 1; d <= m.N; d++) {
     const k = ymd(m.Y, m.M, d), fut = k > todayKP;
-    const A = sum(series(m, ALLC, 'rm', 'a'), d, d), T = sum(series(m, ALLC, 'rm', 't'), d, d);
+    const A = sum(series(m, SALES, 'rm', 'a'), d, d), T = sum(series(m, SALES, 'rm', 't'), d, d);
     let cls = '';
     if (fut) cls = ''; else if (!m.open[d] && A === 0) cls = 'closed'; else if (A !== 0 || dayHasData([m], d)) cls = verdict(A, T);
     h += `<button class="sq ${cls} ${d === D ? 'sel' : ''} ${k === todayKP ? 'today' : ''}" data-day="${d}" ${fut ? 'disabled style="opacity:.45"' : ''} aria-label="${d} ${MS[m.M - 1]}">${d}</button>`;
