@@ -303,7 +303,7 @@ function combine(list) {
     for (let d = 1; d <= N; d++) { a.rm[d] = a.u[d] = t.rm[d] = t.u[d] = 0; }
     for (const x of list) { const k = x.cat[c.id]; mRM += k.monthRM; mU += k.monthU;
       for (let d = 1; d <= N; d++) { a.rm[d] += k.a.rm[d]; a.u[d] += k.a.u[d]; t.rm[d] += k.t.rm[d]; t.u[d] += k.t.u[d]; } }
-    cat[c.id] = { a, t, monthRM: mRM, monthU: mU, apu: 0 };
+    cat[c.id] = { a, t, monthRM: mRM, monthU: mU, apu: (list.find(x => x.cat[c.id].apu) || { cat: {} }).cat[c.id] ? list.find(x => x.cat[c.id].apu).cat[c.id].apu : 0 };
   }
   const open = []; for (let d = 1; d <= N; d++) open[d] = list.some(x => x.open[d]);
   return { o: { key: 'all', name: 'Semua Outlet', short: 'SEMUA' }, N, Y: b.Y, M: b.M, open, cat, hasPlan: list.some(x => x.hasPlan) };
