@@ -106,7 +106,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}
 th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);text-align:right;padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 td{padding:9px 6px;text-align:right;border-bottom:1px solid var(--line)}
-@media(max-width:600px){th,td{padding-left:4px;padding-right:4px}td .sub{font-size:10.5px}table{font-size:12px}}
+@media(max-width:600px){th,td{padding-left:3px;padding-right:3px}th{white-space:normal;font-size:10px;letter-spacing:0}td .sub{font-size:10px}table{font-size:11.5px}.mark{width:12px}}
 tr:last-child td{border-bottom:0}
 tr.link{cursor:pointer}
 tr.link:hover td{background:var(--idle-bg)}
@@ -480,18 +480,20 @@ function summaryBox(models, D, ctx) {
 function scoreboard(models, D, ctx) {
   const all = combine(models);
   const line = (m, isTot) => {
-    const K = kpis(m, D), sV = verdict(K.sales.mtdA, K.sales.mtdT), uV = verdict(K.unit.mtdA, K.unit.mtdT), aV = apuVerdict(K.apu.mtd, K.apu.tgt);
-    const dv = ctx.future || !m.open[D] && !(K.sales.day > 0) ? 'idle' : ctx.noData ? 'idle' : verdict(K.sales.day, K.sales.dayT);
-    const dtxt = ctx.future ? 'belum tiba' : (!m.open[D] && !(K.sales.day > 0)) ? 'tutup' : ctx.noData ? 'belum diisi' : rm(K.sales.day);
+    const K = kpis(m, D), sV = verdict(K.sales.mtdA, K.sales.mtdT);
+    const closed = !m.open[D] && !(K.sales.day > 0);
+    const st = ctx.future ? 'belum tiba' : closed ? 'tutup' : ctx.noData ? 'belum diisi' : null;
+    const cell = (txt, tgt, v) => st ? `<td class="na">${st}</td>` : `<td>${txt}<span class="sub">/ ${tgt} ${mark(v)}</span></td>`;
+    const apuDayOk = !st && K.unit.day > 0;
     return `<tr class="${isTot ? 'tot' : 'link'}" ${isTot ? '' : `data-scope="${m.o.key}"`}>
       <td><b>${esc(m.o.name)}</b></td>
-      <td>${dtxt}<span class="sub">target ${rm(K.sales.dayT)} ${mark(dv)}</span></td>
-      <td>${rm(K.sales.mtdA)}<span class="sub">target ${rm(K.sales.mtdT)} · ${pct(K.sales.mtdA, K.sales.mtdT)} ${mark(sV)}</span></td>
-      <td>${un(K.unit.mtdA)}<span class="sub">target ${unT(K.unit.mtdT)} · ${pct(K.unit.mtdA, K.unit.mtdT)} ${mark(uV)}</span></td>
-      <td>${K.apu.mtd == null ? '–' : rm(K.apu.mtd)}<span class="sub">target ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(aV)}</span></td></tr>`;
+      ${cell(rm(K.sales.day), rm(K.sales.dayT), verdict(K.sales.day, K.sales.dayT))}
+      ${cell(un(K.unit.day), unT(K.unit.dayT), verdict(K.unit.day, K.unit.dayT))}
+      ${st ? `<td class="na">${st}</td>` : apuDayOk ? `<td>${rm(K.apu.day)}<span class="sub">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</span></td>` : '<td class="na">tiada unit</td>'}
+      <td>${rm(K.sales.mtdA)}<span class="sub">/ ${rm(K.sales.mtdT)} · ${pct(K.sales.mtdA, K.sales.mtdT)} ${mark(sV)}</span></td></tr>`;
   };
-  return `<div class="card"><h2>Papan skor outlet<small>sehingga ${D} ${MS[models[0].M - 1]} · klik outlet untuk perincian</small></h2>
-    <div class="tw"><table class="num"><thead><tr><th>Outlet</th><th>Sales hari ini</th><th>Sales MTD</th><th>Unit MTD</th><th>APU MTD</th></tr></thead><tbody>${models.map(m => line(m)).join('')}${line(all, true)}</tbody></table></div></div>`;
+  return `<div class="card"><h2>Papan skor outlet<small>${D} ${MS[models[0].M - 1]} · klik outlet untuk perincian · angka kecil = target</small></h2>
+    <div class="tw"><table class="num"><thead><tr><th>Outlet</th><th>Sales hari ini</th><th>Unit hari ini</th><th>APU hari ini</th><th>Sales MTD</th></tr></thead><tbody>${models.map(m => line(m)).join('')}${line(all, true)}</tbody></table></div></div>`;
 }
 function catTable(m, D) {
   const rows = C.CATS.map(c => catRow(m, c.id, D));
