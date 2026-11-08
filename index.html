@@ -495,7 +495,7 @@ function mtdTiles(m, D) {
       <div><span>RM phone MTD</span><b>${rm(K.phoneRM.mtdA)}</b></div>
       <div><span>Unit phone MTD</span><b>${un(K.unit.mtdA)}</b></div>
     </div></div>`;
-  return `<h3 class="sec">Month-to-date <small>1 – ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
+  return `<h3 class="sec">Target bulan &amp; unjuran <small>s/d ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
 }
 function summaryBox(models, D, ctx) {
   const rows = models.map(m => { const K = kpis(m, D); const closed = !m.open[D] && !(K.sales.day > 0);
@@ -630,10 +630,9 @@ function render() {
   if (ctx.noData) html += `<div class="banner info">Data hari ini belum diisi dalam MASTER SHEET.</div>`;
   html += kpiTiles(m, D, models, ctx);
   if (S.scope === 'all') html += scoreboard(models, D, ctx);
-  html += mtdBrief(m, D);
   html += `<details class="more" id="more" ${S.more ? 'open' : ''}><summary>Perincian lagi</summary>`
     + strip(S.scope === 'all' ? combine(models) : m, D)
-    + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
+    + mtdBrief(m, D) + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
   app.innerHTML = html;
   const mo = $('#more'); if (mo) mo.addEventListener('toggle', () => { S.more = mo.open; });
   $('#asof').textContent = `Data terkini: ${latest} ${MS[M - 1]} · dikemas kini ${new Date(S.store.at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}${S.store.live ? '' : ' (tersimpan)'}`;
