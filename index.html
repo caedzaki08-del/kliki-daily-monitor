@@ -176,6 +176,13 @@ th{padding:4px 6px}td{padding:6px 6px}
 details.more{margin:10px 0 2px}details.more>summary{padding:9px}
 footer{padding:4px 0 16px;font-size:11px}
 .banner{padding:7px 12px;margin:8px 0;font-size:12.5px}
+details.sx>summary{cursor:pointer;list-style:none;display:flex;flex-direction:column;gap:6px}
+details.sx>summary::-webkit-details-marker{display:none}
+details.sx .lab{display:flex;justify-content:space-between}
+details.sx .chev{display:inline-grid;place-items:center;transition:transform .15s;color:var(--blue)}
+details.sx[open] .chev{transform:rotate(180deg)}
+.sx-body{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+@media(prefers-reduced-motion:reduce){details.sx .chev{transition:none}}
 </style>
 </head>
 <body>
@@ -383,7 +390,7 @@ const apuVerdict = (a, t) => (a == null || t == null) ? 'idle' : (a + 1e-6 >= t 
 const mark = v => v === 'hit' ? '<span class="mark ok">✓</span>' : v === 'miss' ? '<span class="mark no">✗</span>' : '<span class="mark na">–</span>';
 
 /* ---------- state ---------- */
-const S = { more: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
+const S = { more: false, salesOpen: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
 const todayKP = (() => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return p; })();
 const monthKeys = () => Object.keys(S.store.plan.months).sort();
 function modelFor(ym) { return C.OUTLETS.map(o => buildOutlet(o, ym, S.store)); }
@@ -429,7 +436,7 @@ function kpiTiles(m, D, models, ctx) {
   const stTxt = { future: 'belum tiba', closed: 'outlet tutup', nodata: 'belum diisi' }[state];
   const ok = state === 'ok';
   const rA = series(m, ['rep'], 'rm', 'a'), rT = series(m, ['rep'], 'rm', 't');
-  const repRM = { day: rA[D], monthT: sum(rT, 1, m.N) };
+  const repRM = { day: rA[D], dayT: rT[D], monthT: sum(rT, 1, m.N) };
   const repApuT = K.repU.monthT > 0 && repRM.monthT > 0 ? repRM.monthT / K.repU.monthT : null;
   const repApuDay = ok && K.repU.day > 0 ? repRM.day / K.repU.day : null;
   const phApuDay = ok && K.unit.day > 0 ? K.apu.day : null;
@@ -441,7 +448,10 @@ function kpiTiles(m, D, models, ctx) {
     return `<div class="lnw"><div class="ln ${big ? 'big' : ''} num"><span class="lbl">${label}</span><span class="act">${none ? '–' : fa(a)}</span>${right}</div>${none || !hasT ? '<div class="bar thin"></div>' : barHTML(a, t).replace('class="bar', 'class="bar thin')}</div>`;
   };
   const card = (title, body) => `<div class="kpi"><div class="lab"><span>${title}</span></div>${body}</div>`;
-  const sales = card('Sales RM', ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true));
+  const sales = `<div class="kpi"><details class="sx" id="sx" ${S.salesOpen ? 'open' : ''}>
+    <summary><div class="lab"><span>Sales RM</span><span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>${ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true)}</summary>
+    <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}</div>
+  </details></div>`;
   const unit = card('Unit', ln('Phone', K.unit.day, K.unit.dayT, un, unT, verdict(K.unit.day, K.unit.dayT))
     + ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT)));
   const apu = card('Average Price Unit', ln('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')
@@ -634,6 +644,7 @@ function render() {
     + strip(S.scope === 'all' ? combine(models) : m, D)
     + mtdBrief(m, D) + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
   app.innerHTML = html;
+  const sx = $('#sx'); if (sx) sx.addEventListener('toggle', () => { S.salesOpen = sx.open; });
   const mo = $('#more'); if (mo) mo.addEventListener('toggle', () => { S.more = mo.open; });
   $('#asof').textContent = `Data terkini: ${latest} ${MS[M - 1]} · dikemas kini ${new Date(S.store.at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}${S.store.live ? '' : ' (tersimpan)'}`;
   app.querySelectorAll('[data-scope]').forEach(e => e.onclick = () => { S.scope = e.dataset.scope; render(); window.scrollTo({ top: 0 }); });
