@@ -198,6 +198,7 @@ details.sx[open] .chev{transform:rotate(180deg)}
 .chip3{font-size:11.5px;font-weight:700;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .chip3 i{font-style:normal;font-weight:500;opacity:.85}
 .chip3.hit{background:var(--hit-bg);color:var(--hit)}.chip3.miss{background:var(--miss-bg);color:var(--miss)}
+table.bal td b{white-space:nowrap}table.bal td{padding:7px 8px;font-size:13px;vertical-align:top}table.bal tr.grp td{font-weight:700;font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut,#5b6a8a);padding-top:12px}table.bal td.na,table.bal .na{font-weight:400}
 </style>
 </head>
 <body>
@@ -556,45 +557,33 @@ function mtdBrief(m, D) {
     ${row('Average Price Unit (phone)', K.apu.mtd, K.apu.tgt, rm, rm, apuVerdict(K.apu.mtd, K.apu.tgt))}</div>`;
 }
 function mtdTiles(m, D) {
-  const K = kpis(m, D);
-  const sV = verdict(K.sales.mtdA, K.sales.mtdT), uV = verdict(K.unit.mtdA, K.unit.mtdT), aV = apuVerdict(K.apu.mtd, K.apu.tgt);
-  const apuG = (K.apu.mtd != null && K.apu.tgt != null) ? K.apu.mtd - K.apu.tgt : 0;
-  const sales = `
-  <div class="kpi"><div class="lab"><span>Sales RM · MTD</span>${pct(K.sales.mtdA, K.sales.mtdT)} daripada target MTD</div>
-    <div class="val num">${rm(K.sales.mtdA)}<small>MTD</small></div>
-    ${barHTML(K.sales.mtdA, K.sales.mtdT)}
-    <div>${pillHTML(sV, K.sales.mtdA, K.sales.mtdT, rmS)}</div>
-    <div class="rows num">
-      <div><span>Target MTD</span><b>${rm(K.sales.mtdT)}</b></div>
-      <div class="hr"></div>
-      <div><span>Target bulan</span><b>${rm(K.sales.monthT)}</b></div>
-      <div><span>Perlu / hari (baki ${K.sales.left} hari)</span><b>${K.sales.need == null ? '–' : rm(K.sales.need)}</b></div>
-      <div><span>Unjuran hujung bulan</span><b>${K.sales.proj == null ? '–' : rm(K.sales.proj) + ' (' + pct(K.sales.proj, K.sales.monthT) + ')'}</b></div>
-    </div></div>`;
-  const unit = `
-  <div class="kpi"><div class="lab"><span>Unit phone · MTD</span>${pct(K.unit.mtdA, K.unit.mtdT)} daripada target MTD</div>
-    <div class="val num">${un(K.unit.mtdA)}<small>unit MTD</small></div>
-    ${barHTML(K.unit.mtdA, K.unit.mtdT)}
-    <div>${pillHTML(uV, K.unit.mtdA, K.unit.mtdT, unS)}</div>
-    <div class="rows num">
-      <div><span>Target MTD</span><b>${unT(K.unit.mtdT)}</b></div>
-      <div class="hr"></div>
-      <div><span>Target bulan</span><b>${unT(K.unit.monthT)}</b></div>
-      <div><span>Perlu / hari (baki ${K.unit.left} hari)</span><b>${K.unit.need == null ? '–' : unT(K.unit.need)}</b></div>
-      <div><span>Unit repair MTD</span><b>${un(K.repU.mtdA)} <span class="na">/ ${unT(K.repU.mtdT)}</span></b></div>
-    </div></div>`;
-  const apu = `
-  <div class="kpi"><div class="lab"><span>Average Price Unit · MTD</span>${K.apu.mtd != null && K.apu.tgt ? pct(K.apu.mtd, K.apu.tgt) + ' daripada target' : ''}</div>
-    <div class="val num">${K.apu.mtd == null ? '–' : rm(K.apu.mtd)}<small>purata / unit MTD</small></div>
-    ${barHTML(K.apu.mtd || 0, K.apu.tgt || 0)}
-    <div>${aV === 'idle' ? '<span class="pill idle">Belum ada jualan</span>' : aV === 'hit' ? `<span class="pill hit">✓ CAPAI · ${rmS(apuG)}</span>` : `<span class="pill miss">✗ TAK CAPAI · ${rmS(apuG)}</span>`}</div>
-    <div class="rows num">
-      <div><span>Target Average Price Unit</span><b>${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</b></div>
-      <div class="hr"></div>
-      <div><span>RM phone MTD</span><b>${rm(K.phoneRM.mtdA)}</b></div>
-      <div><span>Unit phone MTD</span><b>${un(K.unit.mtdA)}</b></div>
-    </div></div>`;
-  return `<h3 class="sec">Target bulan &amp; unjuran <small>s/d ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
+  // Baki ke target bulan: berapa lagi perlu, dan kadar perlu setiap hari buka yang tinggal
+  let left = 0; for (let d = D + 1; d <= m.N; d++) if (m.open[d]) left++;
+  const mo = (ids, kind) => { const A = series(m, ids, kind, 'a'), T = series(m, ids, kind, 't'); return { a: sum(A, 1, D), t: sum(T, 1, m.N) }; };
+  const accA = sum(m.acc.a, 1, D), accT = sum(m.acc.t, 1, m.N);
+  const phR = mo(PHONE, 'rm'), rpR = mo(['rep'], 'rm'), ttR = mo(SALES, 'rm');
+  const phU = mo(PHONE, 'u'), rpU = mo(['rep'], 'u');
+  const row = (name, a, t, f, per) => {
+    const bal = t - a;
+    if (!(t > 0)) return `<tr><td>${name}</td><td colspan="2" class="na">tiada target</td></tr>`;
+    if (bal <= 0) return `<tr><td>${name}</td><td colspan="2"><span class="ok">✓ dah capai</span> <span class="na">(lebih ${f(-bal)})</span></td></tr>`;
+    if (!left) return `<tr><td>${name}</td><td><b>${f(bal)}</b></td><td><span class="no">bulan tamat</span></td></tr>`;
+    return `<tr><td>${name}</td><td><b>${f(bal)}</b></td><td><b>${f(bal / left)}</b></td></tr>`;
+  };
+  const apuRow = (name, R, U) => {
+    if (!(R.t > 0 && U.t > 0)) return `<tr><td>${name}</td><td colspan="2" class="na">tiada target</td></tr>`;
+    const rb = R.t - R.a, ub = U.t - U.a, tgt = R.t / U.t;
+    if (rb <= 0) return `<tr><td>${name}</td><td colspan="2"><span class="ok">✓ dah capai</span></td></tr>`;
+    if (ub <= 0) return `<tr><td>${name}</td><td colspan="2"><span class="no">unit sasaran dah cukup, RM masih kurang ${rm(rb)}</span></td></tr>`;
+    const need = rb / ub;
+    void tgt; return `<tr><td>${name}</td><td><b>${rm(need)}</b></td><td class="na">${un(Math.ceil(ub))} unit baki</td></tr>`;
+  };
+  const grp = t => `<tr class="grp"><td colspan="3">${t}</td></tr>`;
+  const body = grp('Sales RM') + row('Total', ttR.a, ttR.t, rm) + row('Phone', phR.a, phR.t, rm) + row('Repair', rpR.a, rpR.t, rm) + row('Aksesori', accA, accT, rm)
+    + grp('Unit') + row('Phone', phU.a, phU.t, un) + row('Repair', rpU.a, rpU.t, un)
+    + grp('Average Price Unit <span class="na">(perlu purata pada unit baki)</span>') + apuRow('Phone', phR, phU) + apuRow('Repair', rpR, rpU);
+  return `<h3 class="sec">Baki ke hujung bulan <small>selepas ${D} ${MS[m.M - 1]} · ${left} hari buka lagi</small></h3>
+  <div class="card"><div class="tw"><table class="num bal"><thead><tr><th></th><th>Baki</th><th>Perlu / hari</th></tr></thead><tbody>${body}</tbody></table></div></div>`;
 }
 function summaryBox(models, D, ctx) {
   const rows = models.map(m => { const K = kpis(m, D); const closed = !m.open[D] && !(K.sales.day > 0);
