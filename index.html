@@ -87,6 +87,19 @@ header{background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset
 .avt small{display:block;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--mute);font-weight:600}
 .avt b{font-size:22px;line-height:1.15}
 .avt div:nth-child(2) b,.avt div:nth-child(3) b{font-size:16px;font-weight:600;color:var(--mute)}
+.lnw{display:flex;flex-direction:column;gap:5px}
+.lnw+.lnw{margin-top:12px}
+.ln{display:grid;grid-template-columns:1fr auto auto 20px;align-items:baseline;gap:8px}
+.ln .lbl{font-weight:600;font-size:14px}
+.ln .act{font-size:22px;font-weight:800;line-height:1.1}
+.ln .act.sm{font-size:17px}
+.ln.big .act{font-size:32px}
+.ln .tg{color:var(--mute);font-size:14px}
+.bar.thin{height:6px}
+details.more{margin:18px 0 4px}
+details.more>summary{cursor:pointer;list-style:none;text-align:center;padding:12px;border-radius:12px;background:var(--card);box-shadow:var(--shadow);font-weight:600;color:var(--blue)}
+details.more>summary::-webkit-details-marker{display:none}
+details.more[open]>summary{margin-bottom:14px}
 .kpis{display:grid;gap:12px;grid-template-columns:1fr}
 @media(min-width:760px){.kpis{grid-template-columns:repeat(3,1fr)}}
 .kpi{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px}
@@ -349,7 +362,7 @@ const apuVerdict = (a, t) => (a == null || t == null) ? 'idle' : (a + 1e-6 >= t 
 const mark = v => v === 'hit' ? '<span class="mark ok">✓</span>' : v === 'miss' ? '<span class="mark no">✗</span>' : '<span class="mark na">–</span>';
 
 /* ---------- state ---------- */
-const S = { store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
+const S = { more: false, store: null, ym: null, day: 1, scope: 'all', chart: 'rm', err: null };
 const todayKP = (() => { const p = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kuala_Lumpur', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); return p; })();
 const monthKeys = () => Object.keys(S.store.plan.months).sort();
 function modelFor(ym) { return C.OUTLETS.map(o => buildOutlet(o, ym, S.store)); }
@@ -394,30 +407,33 @@ function kpiTiles(m, D, models, ctx) {
   const state = future ? 'future' : closed ? 'closed' : noData ? 'nodata' : 'ok';
   const stTxt = { future: 'belum tiba', closed: 'outlet tutup', nodata: 'belum diisi' }[state];
   const ok = state === 'ok';
-  const repRM = (() => { const A = series(m, ['rep'], 'rm', 'a'), T = series(m, ['rep'], 'rm', 't'); return { day: A[D], dayT: T[D], monthT: sum(T, 1, m.N) }; })();
+  const rA = series(m, ['rep'], 'rm', 'a'), rT = series(m, ['rep'], 'rm', 't');
+  const repRM = { day: rA[D], monthT: sum(rT, 1, m.N) };
   const repApuT = K.repU.monthT > 0 && repRM.monthT > 0 ? repRM.monthT / K.repU.monthT : null;
   const repApuDay = ok && K.repU.day > 0 ? repRM.day / K.repU.day : null;
-  // satu blok Actual vs Target
-  const blk = (label, a, t, fa, ft, v, gapTxt, opts) => {
-    opts = opts || {};
-    const none = !ok || a == null;
-    const pillH = !ok ? `<span class="pill idle">${stTxt}</span>` : (a == null) ? `<span class="pill idle">${opts.noneTxt || 'Tiada data'}</span>` : v === 'idle' ? '<span class="pill idle">Tiada target</span>' : v === 'hit' ? `<span class="pill hit">✓ CAPAI · ${gapTxt}</span>` : `<span class="pill miss">✗ TAK CAPAI · ${gapTxt}</span>`;
-    return `<div class="blk">
-      <div class="blk-h"><span>${label}</span>${pillH}</div>
-      <div class="avt num"><div><small>Actual</small><b>${none ? '–' : fa(a)}</b></div><div><small>Target</small><b>${t == null || t <= 0 ? '–' : ft(t)}</b></div><div><small>Capai</small><b>${none || !(t > 0) ? '–' : pct(a, t)}</b></div></div>
-      ${none || !(t > 0) ? '<div class="bar"></div>' : barHTML(a, t)}
-    </div>`;
-  };
-  const card = (title, body) => `<div class="kpi"><div class="lab"><span>${title}</span><span>Actual vs Target</span></div>${body}</div>`;
-  const sV = verdict(K.sales.day, K.sales.dayT);
-  const sales = card('Total Sales RM', blk('Phone + Repair', K.sales.day, K.sales.dayT, rm, rm, sV, rmS(K.sales.day - K.sales.dayT)));
-  const phU = verdict(K.unit.day, K.unit.dayT), reU = verdict(K.repU.day, K.repU.dayT);
-  const unit = card('Unit', blk('Phone', K.unit.day, K.unit.dayT, un, unT, phU, unS(K.unit.day - K.unit.dayT))
-    + blk('Repair', K.repU.day, K.repU.dayT, un, unT, reU, unS(K.repU.day - K.repU.dayT)));
   const phApuDay = ok && K.unit.day > 0 ? K.apu.day : null;
-  const apu = card('APU', blk('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), rmS((phApuDay || 0) - (K.apu.tgt || 0)), { noneTxt: 'Tiada unit' })
-    + blk('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), rmS((repApuDay || 0) - (repApuT || 0)), { noneTxt: repApuT == null ? 'Tiada target' : 'Tiada unit' }));
+  // satu baris: label | actual | / target | ✓✗ + meter nipis
+  const ln = (label, a, t, fa, ft, v, big, noneTxt) => {
+    const none = !ok || a == null;
+    const hasT = t != null && t > 0;
+    const right = none ? `<span class="na">${!ok ? stTxt : (noneTxt || '–')}</span>` : `<span class="tg">/ ${hasT ? ft(t) : '–'}</span>${hasT ? mark(v) : ''}`;
+    return `<div class="lnw"><div class="ln ${big ? 'big' : ''} num"><span class="lbl">${label}</span><span class="act">${none ? '–' : fa(a)}</span>${right}</div>${none || !hasT ? '<div class="bar thin"></div>' : barHTML(a, t).replace('class="bar', 'class="bar thin')}</div>`;
+  };
+  const card = (title, body) => `<div class="kpi"><div class="lab"><span>${title}</span></div>${body}</div>`;
+  const sales = card('Sales RM', ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true));
+  const unit = card('Unit', ln('Phone', K.unit.day, K.unit.dayT, un, unT, verdict(K.unit.day, K.unit.dayT))
+    + ln('Repair', K.repU.day, K.repU.dayT, un, unT, verdict(K.repU.day, K.repU.dayT)));
+  const apu = card('APU', ln('Phone', phApuDay, K.apu.tgt, rm, rm, apuVerdict(phApuDay, K.apu.tgt), false, 'tiada unit')
+    + ln('Repair', repApuDay, repApuT, rm, rm, apuVerdict(repApuDay, repApuT), false, repApuT == null ? 'tiada target' : 'tiada unit'));
   return `<h3 class="sec">Hari ini <small>${DOW[dowOf(m.Y, m.M, D)]}, ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
+}
+function mtdBrief(m, D) {
+  const K = kpis(m, D);
+  const row = (label, a, t, fa, ft, v) => `<div class="lnw"><div class="ln num"><span class="lbl">${label}</span><span class="act sm">${a == null ? '–' : fa(a)}</span><span class="tg">/ ${t == null || !(t > 0) ? '–' : ft(t)}</span>${mark(v)}</div>${t > 0 && a != null ? barHTML(a, t).replace('class="bar', 'class="bar thin') : '<div class="bar thin"></div>'}</div>`;
+  return `<h3 class="sec">Month-to-date <small>1 – ${D} ${MS[m.M - 1]}</small></h3><div class="card">
+    ${row('Sales RM', K.sales.mtdA, K.sales.mtdT, rm, rm, verdict(K.sales.mtdA, K.sales.mtdT))}
+    ${row('Unit phone', K.unit.mtdA, K.unit.mtdT, un, unT, verdict(K.unit.mtdA, K.unit.mtdT))}
+    ${row('APU phone', K.apu.mtd, K.apu.tgt, rm, rm, apuVerdict(K.apu.mtd, K.apu.tgt))}</div>`;
 }
 function mtdTiles(m, D) {
   const K = kpis(m, D);
@@ -472,20 +488,18 @@ function summaryBox(models, D, ctx) {
 function scoreboard(models, D, ctx) {
   const all = combine(models);
   const line = (m, isTot) => {
-    const K = kpis(m, D), sV = verdict(K.sales.mtdA, K.sales.mtdT);
+    const K = kpis(m, D);
     const closed = !m.open[D] && !(K.sales.day > 0);
     const st = ctx.future ? 'belum tiba' : closed ? 'tutup' : ctx.noData ? 'belum diisi' : null;
     const cell = (txt, tgt, v) => st ? `<td class="na">${st}</td>` : `<td>${txt}<span class="sub">/ ${tgt} ${mark(v)}</span></td>`;
-    const apuDayOk = !st && K.unit.day > 0;
+    const apuOk = !st && K.unit.day > 0;
     return `<tr class="${isTot ? 'tot' : 'link'}" ${isTot ? '' : `data-scope="${m.o.key}"`}>
       <td><b>${esc(m.o.name)}</b></td>
       ${cell(rm(K.sales.day), rm(K.sales.dayT), verdict(K.sales.day, K.sales.dayT))}
       ${cell(un(K.unit.day), unT(K.unit.dayT), verdict(K.unit.day, K.unit.dayT))}
-      ${st ? `<td class="na">${st}</td>` : apuDayOk ? `<td>${rm(K.apu.day)}<span class="sub">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</span></td>` : '<td class="na">tiada unit</td>'}
-      <td>${rm(K.sales.mtdA)}<span class="sub">/ ${rm(K.sales.mtdT)} · ${pct(K.sales.mtdA, K.sales.mtdT)} ${mark(sV)}</span></td></tr>`;
+      ${st ? `<td class="na">${st}</td>` : apuOk ? `<td>${rm(K.apu.day)}<span class="sub">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)} ${mark(apuVerdict(K.apu.day, K.apu.tgt))}</span></td>` : '<td class="na">tiada unit</td>'}</tr>`;
   };
-  return `<div class="card"><h2>Papan skor outlet<small>${D} ${MS[models[0].M - 1]} · klik outlet untuk perincian · angka kecil = target</small></h2>
-    <div class="tw"><table class="num"><thead><tr><th>Outlet</th><th>Sales hari ini</th><th>Unit hari ini</th><th>APU hari ini</th><th>Sales MTD</th></tr></thead><tbody>${models.map(m => line(m)).join('')}${line(all, true)}</tbody></table></div></div>`;
+  return `<h3 class="sec">Ikut outlet <small>hari ini · klik untuk lihat satu outlet</small></h3><div class="card"><div class="tw"><table class="num"><thead><tr><th>Outlet</th><th>Sales</th><th>Unit</th><th>APU</th></tr></thead><tbody>${models.map(m => line(m)).join('')}${line(all, true)}</tbody></table></div></div>`;
 }
 function catTable(m, D) {
   const rows = C.CATS.map(c => catRow(m, c.id, D));
@@ -590,19 +604,17 @@ function render() {
     <div class="d"><b>${dow}, ${D} ${MONTHS[M - 1]} ${Y}</b><span>${future ? 'Belum tiba' : todayIsSel ? 'Hari ini' : (D === latest ? 'Data terkini' : 'Tarikh dipilih')}${!m.open[D] && S.scope !== 'all' ? ' · outlet tutup' : ''}</span></div>
     <button class="nav" id="next" ${nextOk ? '' : 'disabled'} aria-label="Hari berikut">›</button>
     ${D !== latest ? '<button class="latest" id="latest">Terkini</button>' : ''}</div>`;
-  html += strip(models.length > 1 && S.scope === 'all' ? combine(models) : m, D);
   html += `<div class="tabs">${tabs}</div>`;
-  if (future && ymd(Y, M, 1) > todayKP) html += `<div class="banner info">Bulan ini belum bermula — papar target sahaja. Sales/unit akan terisi bila data masuk ke MASTER SHEET.</div>`;
-  if (ctx.noData) html += `<div class="banner info">Data hari ini belum diisi dalam MASTER SHEET. Status MTD dikira sehingga hari ini dengan jualan sedia ada.</div>`;
-  if (S.scope === 'all') html += summaryBox(models, D, ctx);
+  if (future && ymd(Y, M, 1) > todayKP) html += `<div class="banner info">Bulan ini belum bermula. Sales/unit akan terisi bila data masuk ke MASTER SHEET.</div>`;
+  if (ctx.noData) html += `<div class="banner info">Data hari ini belum diisi dalam MASTER SHEET.</div>`;
   html += kpiTiles(m, D, models, ctx);
-  html += mtdTiles(m, D);
-  html += '<div style="height:14px"></div>';
   if (S.scope === 'all') html += scoreboard(models, D, ctx);
-  html += catTable(m, D);
-  html += chartCard(m, D);
-  html += dailyLog(m, D);
+  html += mtdBrief(m, D);
+  html += `<details class="more" id="more" ${S.more ? 'open' : ''}><summary>Perincian lagi</summary>`
+    + strip(S.scope === 'all' ? combine(models) : m, D)
+    + mtdTiles(m, D) + catTable(m, D) + chartCard(m, D) + dailyLog(m, D) + `</details>`;
   app.innerHTML = html;
+  const mo = $('#more'); if (mo) mo.addEventListener('toggle', () => { S.more = mo.open; });
   $('#asof').textContent = `Data terkini: ${latest} ${MS[M - 1]} · dikemas kini ${new Date(S.store.at).toLocaleTimeString('ms-MY', { hour: '2-digit', minute: '2-digit' })}${S.store.live ? '' : ' (tersimpan)'}`;
   app.querySelectorAll('[data-scope]').forEach(e => e.onclick = () => { S.scope = e.dataset.scope; render(); window.scrollTo({ top: 0 }); });
   app.querySelectorAll('[data-day]').forEach(e => e.onclick = () => { if (e.disabled) return; S.day = +e.dataset.day; render(); });
