@@ -184,6 +184,8 @@ details.sx[open] .chev{transform:rotate(180deg)}
 .sx-body{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--tint)}
 .sx-body .bar{background:var(--card)}
 @media(prefers-reduced-motion:reduce){details.sx .chev{transition:none}}
+.accsep{border-top:1px dashed var(--mute);opacity:.5;margin:9px 0 0}
+.accnote{margin:6px 0 0;font-size:11px;color:var(--mute)}
 </style>
 </head>
 <body>
@@ -282,6 +284,7 @@ function extractData(rows) {
         for (const x of cols) { if (x.r >= 0) a += num(rows[r][x.r]); if (x.u >= 0) b += num(rows[r][x.u]); }
         od[c.id] = { rm: a, u: b };
       }
+      { let ac = 0; for (const p of o.cols) { const ci = findCol(H, p, C.ACC.rm); if (ci >= 0) ac += num(rows[r][ci]); } od.acc = { rm: ac, u: 0 }; }
     }
   }
   return data;
@@ -297,6 +300,7 @@ function extractPlan(rows) {
     const ym = `${mm[1]}-${pad(+mm[2])}`; const out = (rows[r][iO] || '').trim().toLowerCase(); if (!out) continue;
     const t = {};
     for (const c of C.CATS) t[c.id] = num(rows[r][ix(c.planRM)]);
+    t.acc = ix(C.ACC.planRM) >= 0 ? num(rows[r][ix(C.ACC.planRM)]) : 0;
     (months[ym] = months[ym] || {})[out] = t;
   }
   const apu = Object.assign({}, C.APU_FALLBACK);
@@ -343,7 +347,13 @@ function buildOutlet(o, ym, S) {
     }
     cat[c.id] = { a, t, monthRM: mRM, monthU: mU, apu };
   }
-  return { o, N, Y, M, open, cat, hasPlan: !!planRow };
+  const accM = planRow ? (planRow.acc || 0) : 0, acc = { a: [], t: [], monthT: accM };
+  for (let d = 1; d <= N; d++) {
+    const dd = (S.data[ymd(Y, M, d)] || {})[o.key];
+    acc.a[d] = dd && dd.acc ? dd.acc.rm : 0;
+    acc.t[d] = open[d] && opInWeek[week[d]] ? accM * S.plan.share[week[d]] / opInWeek[week[d]] : 0;
+  }
+  return { o, N, Y, M, open, cat, acc, hasPlan: !!planRow };
 }
 function combine(list) {
   if (list.length === 1) return list[0];
@@ -356,7 +366,10 @@ function combine(list) {
     cat[c.id] = { a, t, monthRM: mRM, monthU: mU, apu: (list.find(x => x.cat[c.id].apu) || { cat: {} }).cat[c.id] ? list.find(x => x.cat[c.id].apu).cat[c.id].apu : 0 };
   }
   const open = []; for (let d = 1; d <= N; d++) open[d] = list.some(x => x.open[d]);
-  return { o: { key: 'all', name: 'Semua Outlet', short: 'SEMUA' }, N, Y: b.Y, M: b.M, open, cat, hasPlan: list.some(x => x.hasPlan) };
+  const acc = { a: [], t: [], monthT: 0 };
+  for (let d = 1; d <= N; d++) { acc.a[d] = 0; acc.t[d] = 0; }
+  for (const x of list) { acc.monthT += x.acc.monthT; for (let d = 1; d <= N; d++) { acc.a[d] += x.acc.a[d]; acc.t[d] += x.acc.t[d]; } }
+  return { o: { key: 'all', name: 'Semua Outlet', short: 'SEMUA' }, N, Y: b.Y, M: b.M, open, cat, acc, hasPlan: list.some(x => x.hasPlan) };
 }
 const PHONE = C.CATS.filter(c => !c.repair).map(c => c.id);
 const ALLC = C.CATS.map(c => c.id);
@@ -451,7 +464,7 @@ function kpiTiles(m, D, models, ctx) {
   const card = (title, body) => `<div class="kpi"><div class="lab"><span>${title}</span></div>${body}</div>`;
   const sales = `<div class="kpi"><details class="sx" id="sx" ${S.salesOpen ? 'open' : ''}>
     <summary><div class="lab"><span>Sales RM</span><span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span></div>${ln('Total', K.sales.day, K.sales.dayT, rm, rm, verdict(K.sales.day, K.sales.dayT), true)}</summary>
-    <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}</div>
+    <div class="sx-body">${ln('Phone', K.phoneRM.day, K.phoneRM.dayT, rm, rm, verdict(K.phoneRM.day, K.phoneRM.dayT))}${ln('Repair', repRM.day, repRM.dayT, rm, rm, verdict(repRM.day, repRM.dayT))}<div class="accsep"></div>${ln('Aksesori', m.acc.a[D], m.acc.t[D], rm, rm, verdict(m.acc.a[D], m.acc.t[D]))}<p class="accnote">Aksesori tidak dikira dalam Total.</p></div>
   </details></div>`;
   const chevSvg = '<span class="chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></span>';
   const catLines = C.CATS.filter(c => !c.repair).map(c => { const k = m.cat[c.id]; return ln(c.label, k.a.u[D], k.t.u[D], un, unT, verdict(k.a.u[D], k.t.u[D])); }).join('');

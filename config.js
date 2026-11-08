@@ -32,6 +32,9 @@ window.CONFIG = {
     { id: 'rep',  label: 'Repair',      planRM: 'REPAIR_RM',      apu: 'REPAIR',      unit: ['REPAIR (UNIT)'],                          rm: ['REPAIR (RM)'], repair: true }
   ],
 
+  // Aksesori: ada target RM tapi tiada unit; dipapar berasingan (tidak dikira dalam Total Sales).
+  ACC: { label: 'Aksesori', planRM: 'ACCESSORIES_RM', rm: ['AKSESORI (RM)'] },
+
   // Pecahan target ikut minggu: W1=hari 1-7, W2=8-14, W3=15-21, W4=22-akhir bulan.
   // Dibaca dari tab PLAN (lajur MINGGU/KONGSI); nilai ini hanya ganti jika PLAN tiada.
   WEEK_SHARE_FALLBACK: [0.25, 0.24, 0.21, 0.30],
