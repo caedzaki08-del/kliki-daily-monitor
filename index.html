@@ -79,6 +79,7 @@ header{background:var(--navy);color:#fff;padding:calc(10px + env(safe-area-inset
 .summary{display:flex;align-items:center;gap:12px;background:var(--navy);color:#fff;border-radius:16px;padding:14px 16px;margin-bottom:14px}
 .summary .big{font-size:30px;font-weight:800;line-height:1}
 .summary p{margin:0;font-size:13.5px;opacity:.9}
+.sec{margin:22px 0 10px;font-size:15px}.sec small{font-weight:400;color:var(--mute);font-size:12.5px;margin-left:6px}
 .kpis{display:grid;gap:12px;grid-template-columns:1fr}
 @media(min-width:760px){.kpis{grid-template-columns:repeat(3,1fr)}}
 .kpi{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:16px;display:flex;flex-direction:column;gap:10px}
@@ -399,13 +400,8 @@ function kpiTiles(m, D, models, ctx) {
     <div>${pill(sDay, K.sales.day - K.sales.dayT, rmS)}</div>
     <div class="rows num">
       <div><span>Target hari ini</span><b>${rm(K.sales.dayT)}</b></div>
-      <div class="hr"></div>
-      ${mtdRow(K.sales.mtdA, K.sales.mtdT, rm, rm, sV)}
-      <div><span>Lebih / kurang MTD</span><b class="${sV === 'hit' ? 'ok' : 'no'}">${rmS(K.sales.mtdA - K.sales.mtdT)}</b></div>
-      <div class="hr"></div>
-      <div><span>Target bulan</span><b>${rm(K.sales.monthT)}</b></div>
-      <div><span>Perlu / hari (baki ${K.sales.left} hari)</span><b>${K.sales.need == null ? '–' : rm(K.sales.need)}</b></div>
-      <div><span>Unjuran hujung bulan</span><b>${K.sales.proj == null ? '–' : rm(K.sales.proj) + ' (' + pct(K.sales.proj, K.sales.monthT) + ')'}</b></div>
+      <div><span>Phone hari ini</span><b>${state === 'ok' ? rm(K.phoneRM.day) : '–'}</b></div>
+      <div><span>Repair hari ini</span><b>${state === 'ok' ? rm(K.sales.day - K.phoneRM.day) : '–'}</b></div>
     </div></div>`;
   const unit = `
   <div class="kpi"><div class="lab"><span>Unit phone · hari ini</span>${state === 'ok' && K.unit.dayT > 0 ? pct(K.unit.day, K.unit.dayT) + ' daripada target' : ''}</div>
@@ -414,13 +410,7 @@ function kpiTiles(m, D, models, ctx) {
     <div>${pill(uDay, K.unit.day - K.unit.dayT, unS)}</div>
     <div class="rows num">
       <div><span>Target hari ini</span><b>${unT(K.unit.dayT)}</b></div>
-      <div class="hr"></div>
-      ${mtdRow(K.unit.mtdA, K.unit.mtdT, un, unT, uV)}
-      <div><span>Lebih / kurang MTD</span><b class="${uV === 'hit' ? 'ok' : 'no'}">${unS(K.unit.mtdA - K.unit.mtdT)}</b></div>
-      <div class="hr"></div>
-      <div><span>Target bulan</span><b>${unT(K.unit.monthT)}</b></div>
-      <div><span>Perlu / hari (baki ${K.unit.left} hari)</span><b>${K.unit.need == null ? '–' : unT(K.unit.need)}</b></div>
-      <div><span>Unit repair MTD</span><b>${un(K.repU.mtdA)} <span class="na">/ ${unT(K.repU.mtdT)}</span></b></div>
+      <div><span>Unit repair hari ini</span><b>${state === 'ok' ? un(K.repU.day) + ' <span class="na">/ ' + unT(K.repU.dayT) + '</span>' : '–'}</b></div>
     </div></div>`;
   const apuG = (K.apu.day != null && K.apu.tgt != null) ? K.apu.day - K.apu.tgt : 0;
   const apuPill = state !== 'ok' ? `<span class="pill idle">${stTxt}</span>` : !aDayOk ? '<span class="pill idle">Tiada unit hari ini</span>' : aDay === 'hit' ? `<span class="pill hit">✓ CAPAI HARI INI · ${rmS(apuG)}</span>` : `<span class="pill miss">✗ TAK CAPAI HARI INI · ${rmS(apuG)}</span>`;
@@ -432,15 +422,51 @@ function kpiTiles(m, D, models, ctx) {
     <div>${apuPill}</div>
     <div class="rows num">
       <div><span>Target APU</span><b>${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</b></div>
-      <div class="hr"></div>
-      <div><span>MTD (s/d ${D} ${MS[m.M - 1]})</span><b>${K.apu.mtd == null ? '–' : rm(K.apu.mtd)} <span class="na">/ ${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</span> ${mark(aMtd)}</b></div>
-      <div><span>Lebih / kurang MTD</span><b class="${aMtd === 'hit' ? 'ok' : 'no'}">${K.apu.mtd == null ? '–' : rmS(apuMtdG)}</b></div>
-      <div class="hr"></div>
       <div><span>RM phone hari ini</span><b>${state === 'ok' ? rm(K.phoneRM.day) : '–'}</b></div>
+      <div><span>Unit phone hari ini</span><b>${state === 'ok' ? un(K.unit.day) : '–'}</b></div>
+    </div></div>`;
+  return `<div class="kpis">${sales}${unit}${apu}</div>`;
+}
+function mtdTiles(m, D) {
+  const K = kpis(m, D);
+  const sV = verdict(K.sales.mtdA, K.sales.mtdT), uV = verdict(K.unit.mtdA, K.unit.mtdT), aV = apuVerdict(K.apu.mtd, K.apu.tgt);
+  const apuG = (K.apu.mtd != null && K.apu.tgt != null) ? K.apu.mtd - K.apu.tgt : 0;
+  const sales = `
+  <div class="kpi"><div class="lab"><span>Sales RM · MTD</span>${pct(K.sales.mtdA, K.sales.mtdT)} daripada target MTD</div>
+    <div class="val num">${rm(K.sales.mtdA)}<small>MTD</small></div>
+    ${barHTML(K.sales.mtdA, K.sales.mtdT)}
+    <div>${pillHTML(sV, K.sales.mtdA, K.sales.mtdT, rmS)}</div>
+    <div class="rows num">
+      <div><span>Target MTD</span><b>${rm(K.sales.mtdT)}</b></div>
+      <div class="hr"></div>
+      <div><span>Target bulan</span><b>${rm(K.sales.monthT)}</b></div>
+      <div><span>Perlu / hari (baki ${K.sales.left} hari)</span><b>${K.sales.need == null ? '–' : rm(K.sales.need)}</b></div>
+      <div><span>Unjuran hujung bulan</span><b>${K.sales.proj == null ? '–' : rm(K.sales.proj) + ' (' + pct(K.sales.proj, K.sales.monthT) + ')'}</b></div>
+    </div></div>`;
+  const unit = `
+  <div class="kpi"><div class="lab"><span>Unit phone · MTD</span>${pct(K.unit.mtdA, K.unit.mtdT)} daripada target MTD</div>
+    <div class="val num">${un(K.unit.mtdA)}<small>unit MTD</small></div>
+    ${barHTML(K.unit.mtdA, K.unit.mtdT)}
+    <div>${pillHTML(uV, K.unit.mtdA, K.unit.mtdT, unS)}</div>
+    <div class="rows num">
+      <div><span>Target MTD</span><b>${unT(K.unit.mtdT)}</b></div>
+      <div class="hr"></div>
+      <div><span>Target bulan</span><b>${unT(K.unit.monthT)}</b></div>
+      <div><span>Perlu / hari (baki ${K.unit.left} hari)</span><b>${K.unit.need == null ? '–' : unT(K.unit.need)}</b></div>
+      <div><span>Unit repair MTD</span><b>${un(K.repU.mtdA)} <span class="na">/ ${unT(K.repU.mtdT)}</span></b></div>
+    </div></div>`;
+  const apu = `
+  <div class="kpi"><div class="lab"><span>APU phone · MTD</span>${K.apu.mtd != null && K.apu.tgt ? pct(K.apu.mtd, K.apu.tgt) + ' daripada target' : ''}</div>
+    <div class="val num">${K.apu.mtd == null ? '–' : rm(K.apu.mtd)}<small>purata / unit MTD</small></div>
+    ${barHTML(K.apu.mtd || 0, K.apu.tgt || 0)}
+    <div>${aV === 'idle' ? '<span class="pill idle">Belum ada jualan</span>' : aV === 'hit' ? `<span class="pill hit">✓ CAPAI · ${rmS(apuG)}</span>` : `<span class="pill miss">✗ TAK CAPAI · ${rmS(apuG)}</span>`}</div>
+    <div class="rows num">
+      <div><span>Target APU</span><b>${K.apu.tgt == null ? '–' : rm(K.apu.tgt)}</b></div>
+      <div class="hr"></div>
       <div><span>RM phone MTD</span><b>${rm(K.phoneRM.mtdA)}</b></div>
       <div><span>Unit phone MTD</span><b>${un(K.unit.mtdA)}</b></div>
     </div></div>`;
-  return `<div class="kpis">${sales}${unit}${apu}</div>`;
+  return `<h3 class="sec">Month-to-date <small>1 – ${D} ${MS[m.M - 1]}</small></h3><div class="kpis">${sales}${unit}${apu}</div>`;
 }
 function summaryBox(models, D, ctx) {
   const rows = models.map(m => { const K = kpis(m, D); const closed = !m.open[D] && !(K.sales.day > 0);
@@ -576,6 +602,7 @@ function render() {
   if (ctx.noData) html += `<div class="banner info">Data hari ini belum diisi dalam MASTER SHEET. Status MTD dikira sehingga hari ini dengan jualan sedia ada.</div>`;
   if (S.scope === 'all') html += summaryBox(models, D, ctx);
   html += kpiTiles(m, D, models, ctx);
+  html += '<div style="height:6px"></div>' + mtdTiles(m, D);
   html += '<div style="height:14px"></div>';
   if (S.scope === 'all') html += scoreboard(models, D, ctx);
   html += catTable(m, D);
